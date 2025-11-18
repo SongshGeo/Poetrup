@@ -207,6 +207,7 @@ All operations are automatically saved to Supabase database:
 ## 📖 Documentation
 
 - [Database Migration Guide](./docs/MIGRATION_GUIDE.md)
+- [Sync Local to Cloud Guide](./docs/SYNC_TO_CLOUD.md)
 - [Frontend Update Guide](./docs/前端更新后同步指南.md)
 - [API Documentation](./nextjs/src/lib/api/README.md)
 
@@ -218,13 +219,34 @@ All operations are automatically saved to Supabase database:
 
 ## 🚀 Deployment
 
-### Deploy to Vercel
+### Deploy to Vercel (Recommended)
 
-1. Fork or clone the repository
-2. Create a project in Vercel and select your repository
-3. Paste the contents of `.env.local` into environment variables
-4. Click deploy
-5. Adjust `site_url` and `additional_redirect_urls` in `supabase/config.toml` (Important: `additional_redirect_urls` should include `https://YOURURL/**`, note the two asterisks)
+For detailed deployment guide, see: [Deployment Guide](./docs/DEPLOYMENT_GUIDE.md)
+
+**Quick Steps:**
+
+1. Push code to GitHub
+2. Create a project in [Vercel](https://vercel.com) and select your repository
+3. **Important**: Set Root Directory to `nextjs`
+4. Add environment variables in Vercel project settings:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `PRIVATE_SUPABASE_SERVICE_KEY`
+5. Click deploy
+6. Configure redirect URLs in Supabase Dashboard (`Project Settings` -> `Authentication` -> `URL Configuration`)
+
+### Create Test User
+
+After deployment, create a test user via:
+
+1. **Supabase Dashboard** (Recommended):
+   - Visit https://supabase.com/dashboard/project/qsqohnmpxuxgeijjosrg
+   - Go to `Authentication` -> `Users` -> `Add user`
+   - Create new user and check "Auto Confirm User"
+
+2. **App Registration Page**:
+   - Visit your deployed app URL
+   - Use the registration feature to create an account
 
 ## 🤝 Contributing
 

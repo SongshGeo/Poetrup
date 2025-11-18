@@ -207,6 +207,7 @@ Poetrup/
 ## 📖 文档
 
 - [数据库迁移指南](./docs/MIGRATION_GUIDE.md)
+- [本地同步到云端指南](./docs/SYNC_TO_CLOUD.md)
 - [前端更新指南](./docs/前端更新后同步指南.md)
 - [API 文档](./nextjs/src/lib/api/README.md)
 
@@ -218,13 +219,34 @@ Poetrup/
 
 ## 🚀 部署
 
-### Vercel 部署
+### Vercel 部署（推荐）
 
-1. Fork 或克隆仓库
-2. 在 Vercel 创建项目，选择你的仓库
-3. 将 `.env.local` 的内容粘贴到环境变量中
-4. 点击部署
-5. 在 `supabase/config.toml` 中调整 `site_url` 和 `additional_redirect_urls`（重要：`additional_redirect_urls` 中需要包含 `https://YOURURL/**`，注意两个星号）
+详细部署指南请查看：[部署指南](./docs/DEPLOYMENT_GUIDE.md)
+
+**快速步骤：**
+
+1. 将代码推送到 GitHub
+2. 在 [Vercel](https://vercel.com) 创建项目，选择你的仓库
+3. **重要**：设置 Root Directory 为 `nextjs`
+4. 在 Vercel 项目设置中添加环境变量：
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `PRIVATE_SUPABASE_SERVICE_KEY`
+5. 点击部署
+6. 在 Supabase Dashboard 配置重定向 URL（`项目设置` -> `Authentication` -> `URL Configuration`）
+
+### 创建测试用户
+
+部署后，可以通过以下方式创建测试用户：
+
+1. **Supabase Dashboard**（推荐）：
+   - 访问 https://supabase.com/dashboard/project/qsqohnmpxuxgeijjosrg
+   - 进入 `Authentication` -> `Users` -> `Add user`
+   - 创建新用户并勾选 "Auto Confirm User"
+
+2. **应用注册页面**：
+   - 访问部署后的应用 URL
+   - 使用注册功能创建账号
 
 ## 🤝 贡献
 
