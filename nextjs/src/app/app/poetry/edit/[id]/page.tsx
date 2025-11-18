@@ -1,6 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useGlobal } from '@/lib/context/GlobalContext';
+import { createSPAClient } from '@/lib/supabase/client';
+import { getWords } from '@/lib/api/words';
+import { getCollections, getCollectionWithWords } from '@/lib/api/collections';
+import { getPoetryById, updatePoetry, createPoetryWithContent } from '@/lib/api/poetry';
+import { transformWord, transformCollection, transformPoetry } from '@/lib/utils/dataTransform';
+import { toast } from 'sonner';
 import { ArrowLeft, BookOpen, Calendar, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,8 +58,10 @@ export default function PoemEditPage() {
   const router = useRouter();
   const params = useParams();
   const poemId = params.id as string;
+  const { user, loading: userLoading } = useGlobal();
+  const [loading, setLoading] = useState(true);
+  const [profileId, setProfileId] = useState<string | null>(null);
   
-  // TODO: 从 Supabase API 获取数据
   const [poem, setPoem] = useState<Poem | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -61,30 +70,155 @@ export default function PoemEditPage() {
   
   const [placedWords, setPlacedWords] = useState<PlacedWord[]>([]);
   
+  // Load data from Supabase
   useEffect(() => {
-    // TODO: 从 API 加载 poem, words, folders
-    // 临时创建一个示例 poem 用于测试
-    const mockPoem: Poem = {
-      id: poemId,
-      title: '未命名作品',
-      wordIds: [],
-      createdAt: Date.now(),
-      description: '',
-    };
-    setPoem(mockPoem);
-    setPoemTitle(mockPoem.title);
-    setPoemDescription(mockPoem.description || "");
-    setPlacedWords([]);
-  }, [poemId]);
+    async function loadData() {
+      if (userLoading || !user?.id) return;
+      
+      setLoading(true);
+      try {
+        const client = createSPAClient();
+        
+        // Get user profile
+        const { data: profile, error: profileError } = await client
+          .from('profiles')
+          .select('id')
+          .eq('auth_uid', user.id)
+          .single();
+        
+        if (profileError || !profile) {
+          console.error('Failed to load profile:', profileError);
+          toast.error('无法加载用户信息');
+          setLoading(false);
+          return;
+        }
+        
+        setProfileId(profile.id);
+        
+        // Load poem
+        const dbPoem = await getPoetryById(client, poemId);
+        if (!dbPoem) {
+          toast.error('作品不存在');
+          router.push('/app');
+          return;
+        }
+        
+        // Extract word IDs and placed words from content
+        let wordIds: string[] = [];
+        let placedWordsData: PlacedWord[] = [];
+        if (dbPoem.content) {
+          try {
+            const content = dbPoem.content as any;
+            if (Array.isArray(content)) {
+              wordIds = content
+                .filter((block: any) => block.type === 'word' && block.word_id)
+                .map((block: any) => block.word_id);
+              
+              placedWordsData = content
+                .filter((block: any) => block.type === 'word' && block.word_id)
+                .map((block: any) => ({
+                  wordId: block.word_id,
+                  x: block.x || 0,
+                  y: block.y || 0,
+                  rotation: block.rotation || 0,
+                }));
+            }
+          } catch (e) {
+            console.warn('Failed to parse poetry content:', e);
+          }
+        }
+        
+        const transformedPoem = transformPoetry(dbPoem, wordIds);
+        transformedPoem.placedWords = placedWordsData;
+        
+        setPoem(transformedPoem);
+        setPoemTitle(transformedPoem.title);
+        setPoemDescription(transformedPoem.description || "");
+        setPlacedWords(placedWordsData);
+        
+        // Load words
+        const wordsResult = await getWords(client, { 
+          page: 1, 
+          pageSize: 1000,
+          orderBy: 'created_at',
+          orderDirection: 'desc'
+        });
+        
+        const transformedWords = wordsResult.words.map(dbWord => transformWord(dbWord));
+        setWords(transformedWords);
+        
+        // Load collections
+        const collectionsResult = await getCollections(client, {
+          ownerId: profile.id,
+          page: 1,
+          pageSize: 100,
+          orderBy: 'created_at',
+          orderDirection: 'desc'
+        });
+        
+        // Load word IDs for each collection
+        const collectionsWithWords = await Promise.all(
+          collectionsResult.collections.map(async (collection) => {
+            const collectionWithWords = await getCollectionWithWords(client, collection.id);
+            const wordIds = collectionWithWords?.words.map(w => w.id) || [];
+            return transformCollection(collection, wordIds);
+          })
+        );
+        
+        setFolders(collectionsWithWords);
+        
+      } catch (error: any) {
+        console.error('Error loading data:', error);
+        toast.error('加载数据失败', {
+          description: error.message || '请稍后重试'
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadData();
+  }, [poemId, user, userLoading, router]);
   
   const handleBack = () => {
-    router.push('/app/poetry');
+    router.push('/app');
   };
   
-  const handleUpdate = (updatedPoem: Poem) => {
-    // TODO: 调用 API 更新
-    setPoem(updatedPoem);
-    router.push('/app/poetry');
+  const handleUpdate = async (updatedPoem: Poem) => {
+    if (!profileId) return;
+    
+    try {
+      const client = createSPAClient();
+      
+      // Convert placed words to content blocks
+      const contentBlocks = placedWords.map(pw => ({
+        type: 'word' as const,
+        word_id: pw.wordId,
+        text: words.find(w => w.id === pw.wordId)?.text || '',
+        x: pw.x,
+        y: pw.y,
+        rotation: pw.rotation,
+      }));
+      
+      // Update poetry in database
+      await updatePoetry(client, poemId, {
+        title: poemTitle,
+        description: poemDescription || null,
+        content: contentBlocks as any,
+        text_content: contentBlocks.map(b => b.text).join(' '),
+        metadata: {
+          folderId: updatedPoem.folderId,
+        } as any,
+      });
+      
+      toast.success('作品已保存');
+      router.push('/app');
+    } catch (error: any) {
+      console.error('Error updating poetry:', error);
+      toast.error('保存失败', {
+        description: error.message || '请稍后重试'
+      });
+    }
   };
   
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);

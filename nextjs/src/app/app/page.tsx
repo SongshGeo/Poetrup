@@ -1,8 +1,12 @@
 "use client";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useGlobal } from "@/lib/context/GlobalContext";
-import { createSPASassClient } from "@/lib/supabase/client";
+import { createSPAClient } from "@/lib/supabase/client";
+import { getWords, createWord, updateWord } from "@/lib/api/words";
+import { getCollections, getCollectionWithWords, createCollection, addWordToCollection } from "@/lib/api/collections";
+import { getPoetry, getPoetryByCreator, createPoetryWithContent } from "@/lib/api/poetry";
+import { transformWord, transformCollection, transformPoetry, type Word as TransformedWord, type Folder as TransformedFolder, type Poem as TransformedPoem } from "@/lib/utils/dataTransform";
 import { Folder, Tag, Star, Clock, Grid3x3, List, MoreHorizontal, Plus, Circle, Calendar, BookOpen, ChevronDown, KeyRound, LogOut, User, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Check, Filter, ArrowUpDown, X, Search, BookMarked, Trash2, Edit, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +67,7 @@ interface Poem {
 
 export default function PoetryPage() {
   const router = useRouter();
-  const { user } = useGlobal();
+  const { user, loading: userLoading } = useGlobal();
   const [selectedTag, setSelectedTag] = useState<string | null>("movie");
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [selectedWord, setSelectedWord] = useState<Word | undefined>();
@@ -76,6 +80,10 @@ export default function PoetryPage() {
   const [newTagName, setNewTagName] = useState("");
   const [newFolderName, setNewFolderName] = useState("");
   const wordsContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Data loading states
+  const [loading, setLoading] = useState(true);
+  const [profileId, setProfileId] = useState<string | null>(null);
 
   // 视图模式
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -116,69 +124,156 @@ export default function PoetryPage() {
     { id: "all", name: "所有内容", icon: Folder, wordIds: [] as string[] },
   ]);
 
-  const [words, setWords] = useState<Word[]>([
-    { id: "1", text: "夕阳", categories: ["自然", "心情"], color: "#d4895c", rotation: -2, folder: "favorites", createdAt: new Date('2024-01-15').getTime() },
-    { id: "2", text: "孤独", categories: ["心情"], color: "#6b7d9e", rotation: 1.5, folder: "favorites", createdAt: new Date('2024-01-12').getTime() },
-    { id: "3", text: "咖啡", categories: ["生活"], color: "#8b7355", rotation: -1, folder: "favorites", createdAt: new Date('2024-01-18').getTime() },
-    { id: "4", text: "电影院", categories: ["电影", "生活"], color: "#9e6b7d", rotation: 2, folder: "favorites", createdAt: new Date('2024-01-10').getTime() },
-    { id: "5", text: "雨天", categories: ["自然", "心情"], color: "#7d9e9e", rotation: -1.5, folder: "favorites", createdAt: new Date('2024-01-20').getTime() },
-    { id: "6", text: "温暖", categories: ["心情"], color: "#d49e5c", rotation: 1, folder: "favorites", createdAt: new Date('2024-01-08').getTime() },
-    { id: "7", text: "书页", categories: ["生活"], color: "#9e8b7d", rotation: -2.5, folder: "favorites", createdAt: new Date('2024-01-22').getTime() },
-    { id: "8", text: "蒙太奇", categories: ["电影"], color: "#7d6b9e", rotation: 0.5, folder: "favorites", createdAt: new Date('2024-01-05').getTime() },
-    { id: "9", text: "星空", categories: ["自然"], color: "#5c6b9e", rotation: 2.5, folder: "favorites", createdAt: new Date('2024-01-25').getTime() },
-    { id: "10", text: "镜头", categories: ["电影"], color: "#9e7d6b", rotation: -1, folder: "favorites", createdAt: new Date('2024-01-14').getTime() },
-    { id: "11", text: "思念", categories: ["心情"], color: "#9e6b8b", rotation: 1.5, folder: "favorites", createdAt: new Date('2024-01-16').getTime() },
-    { id: "12", text: "月光", categories: ["自然"], color: "#8b9ead", rotation: -0.5, folder: "favorites", createdAt: new Date('2024-01-11').getTime() },
-    { id: "13", text: "长镜头", categories: ["电影"], color: "#ad8b9e", rotation: 2, folder: "favorites", createdAt: new Date('2024-01-19').getTime() },
-    { id: "14", text: "忧郁", categories: ["心情"], color: "#6b8b9e", rotation: -2, folder: "favorites", createdAt: new Date('2024-01-07').getTime() },
-    { id: "15", text: "海风", categories: ["自然"], color: "#5c9e8b", rotation: 1, folder: "favorites", createdAt: new Date('2024-01-23').getTime() },
-  ]);
+  const [words, setWords] = useState<Word[]>([]);
 
-  const categoryMap: { [key: string]: string } = {
+  const [categoryMap, setCategoryMap] = useState<{ [key: string]: string }>({
     movie: "电影",
     mood: "心情",
     nature: "自然",
     life: "生活",
-  };
+  });
 
   // 作品数据 - 每个作品包含使用的词语ID
-  const [poems, setPoems] = useState<Poem[]>([
-    {
-      id: "poem1",
-      title: "秋日随想",
-      wordIds: ["1", "5", "12", "11"],  // 夕阳、雨天、月光、思念
-      createdAt: new Date('2024-01-20').getTime(),
-      description: "关于秋天的碎片"
-    },
-    {
-      id: "poem2",
-      title: "城市印象",
-      wordIds: ["3", "4", "7"],  // 咖啡、电影院、书页
-      createdAt: new Date('2024-01-18').getTime(),
-      description: "都市生活的片段"
-    },
-    {
-      id: "poem3",
-      title: "午夜时分",
-      wordIds: ["2", "12", "14"],  // 孤独、月光、忧郁
-      createdAt: new Date('2024-01-15').getTime(),
-      description: "深夜的情绪"
-    },
-    {
-      id: "poem4",
-      title: "光影流转",
-      wordIds: ["8", "10", "13", "4"],  // 蒙太奇、镜头、长镜头、电影院
-      createdAt: new Date('2024-01-22').getTime(),
-      description: "电影的魅力"
-    },
-    {
-      id: "poem5",
-      title: "自然诗篇",
-      wordIds: ["1", "9", "15", "5"],  // 夕阳、星空、海风、雨天
-      createdAt: new Date('2024-01-25').getTime(),
-      description: "大自然的美好"
-    },
-  ]);
+  const [poems, setPoems] = useState<Poem[]>([]);
+  
+  // Load data from Supabase
+  useEffect(() => {
+    async function loadData() {
+      if (userLoading || !user?.id) return;
+      
+      setLoading(true);
+      try {
+        const client = createSPAClient();
+        
+        // Get user profile
+        const { data: profile, error: profileError } = await client
+          .from('profiles')
+          .select('id, metadata')
+          .eq('auth_uid', user.id)
+          .single();
+        
+        if (profileError || !profile) {
+          console.error('Failed to load profile:', profileError);
+          toast.error('无法加载用户信息');
+          setLoading(false);
+          return;
+        }
+        
+        setProfileId(profile.id);
+        
+        // Load custom tags from profile metadata
+        if (profile.metadata && typeof profile.metadata === 'object' && 'tags' in profile.metadata) {
+          const savedTags = (profile.metadata as any).tags;
+          if (Array.isArray(savedTags) && savedTags.length > 0) {
+            const loadedTags = savedTags.map((tag: any) => ({
+              id: tag.id || tag.name.toLowerCase().replace(/\s+/g, '-'),
+              name: tag.name,
+              icon: Tag,
+            }));
+            // Merge with default tags, avoiding duplicates
+            const defaultTags = [
+              { id: "movie", name: "电影", icon: Tag },
+              { id: "mood", name: "心情", icon: Tag },
+              { id: "nature", name: "自然", icon: Tag },
+              { id: "life", name: "生活", icon: Tag },
+            ];
+            const allTags = [...defaultTags];
+            loadedTags.forEach((tag: any) => {
+              if (!allTags.find(t => t.id === tag.id)) {
+                allTags.push(tag);
+              }
+            });
+            setTags(allTags);
+            // Update categoryMap
+            const newCategoryMap: { [key: string]: string } = {};
+            allTags.forEach(tag => {
+              newCategoryMap[tag.id] = tag.name;
+            });
+            setCategoryMap(newCategoryMap);
+          }
+        }
+        
+        // Load words
+        const wordsResult = await getWords(client, { 
+          page: 1, 
+          pageSize: 1000, // Load all words for now
+          orderBy: 'created_at',
+          orderDirection: 'desc'
+        });
+        
+        const transformedWords = wordsResult.words.map(dbWord => transformWord(dbWord));
+        setWords(transformedWords);
+        
+        // Load collections
+        const collectionsResult = await getCollections(client, {
+          ownerId: profile.id,
+          page: 1,
+          pageSize: 100,
+          orderBy: 'created_at',
+          orderDirection: 'desc'
+        });
+        
+        // Load word IDs for each collection
+        const collectionsWithWords = await Promise.all(
+          collectionsResult.collections.map(async (collection) => {
+            const collectionWithWords = await getCollectionWithWords(client, collection.id);
+            const wordIds = collectionWithWords?.words.map(w => w.id) || [];
+            return transformCollection(collection, wordIds, Folder);
+          })
+        );
+        
+        // Add default folders
+        const defaultFolders: typeof folders = [
+          { id: "all", name: "所有内容", icon: Folder, wordIds: transformedWords.map(w => w.id) },
+          { id: "recent", name: "最近使用", icon: Clock, wordIds: [] },
+          ...collectionsWithWords,
+        ];
+        setFolders(defaultFolders);
+        
+        // Load poetry
+        const poetryResult = await getPoetryByCreator(client, profile.id, {
+          page: 1,
+          pageSize: 100,
+          orderBy: 'created_at',
+          orderDirection: 'desc'
+        });
+        
+        // Transform poetry and extract word IDs from content
+        const transformedPoems = await Promise.all(
+          poetryResult.poetry.map(async (dbPoetry) => {
+            // Extract word IDs from content blocks
+            let wordIds: string[] = [];
+            if (dbPoetry.content) {
+              try {
+                const content = dbPoetry.content as any;
+                if (Array.isArray(content)) {
+                  wordIds = content
+                    .filter((block: any) => block.type === 'word' && block.word_id)
+                    .map((block: any) => block.word_id);
+                }
+              } catch (e) {
+                console.warn('Failed to parse poetry content:', e);
+              }
+            }
+            
+            return transformPoetry(dbPoetry, wordIds);
+          })
+        );
+        
+        setPoems(transformedPoems);
+        
+      } catch (error: any) {
+        console.error('Error loading data:', error);
+        toast.error('加载数据失败', {
+          description: error.message || '请稍后重试'
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadData();
+  }, [user, userLoading]);
 
   // 计算词语被引用的次数
   const getWordReferenceCount = useCallback((wordId: string) => {
@@ -323,32 +418,109 @@ export default function PoetryPage() {
   };
 
   // 处理创建新标签
-  const handleCreateTag = () => {
-    if (newTagName.trim()) {
-      const newTag = {
-        id: newTagName.toLowerCase().replace(/\s+/g, '-'),
-        name: newTagName.trim(),
-        icon: Tag,
-      };
+  const handleCreateTag = async () => {
+    if (!newTagName.trim() || !profileId) return;
+    
+    const newTag = {
+      id: newTagName.toLowerCase().replace(/\s+/g, '-'),
+      name: newTagName.trim(),
+      icon: Tag,
+    };
+    
+    // Check if tag already exists
+    if (tags.find(t => t.id === newTag.id || t.name === newTag.name)) {
+      toast.error('标签已存在');
+      return;
+    }
+    
+    try {
+      const client = createSPAClient();
+      
+      // Get current profile metadata
+      const { data: profile, error: profileError } = await client
+        .from('profiles')
+        .select('metadata')
+        .eq('id', profileId)
+        .single();
+      
+      if (profileError || !profile) {
+        throw new Error('无法加载用户信息');
+      }
+      
+      // Update metadata with new tag
+      const currentMetadata = (profile.metadata as any) || {};
+      const currentTags = Array.isArray(currentMetadata.tags) ? currentMetadata.tags : [];
+      
+      // Add new tag if it doesn't exist
+      if (!currentTags.find((t: any) => t.id === newTag.id || t.name === newTag.name)) {
+        currentTags.push({
+          id: newTag.id,
+          name: newTag.name,
+        });
+      }
+      
+      // Update profile metadata
+      const { error: updateError } = await client
+        .from('profiles')
+        .update({
+          metadata: {
+            ...currentMetadata,
+            tags: currentTags,
+          },
+        })
+        .eq('id', profileId);
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      // Update local state
       setTags([...tags, newTag]);
-      categoryMap[newTag.id] = newTag.name;
+      setCategoryMap(prev => ({
+        ...prev,
+        [newTag.id]: newTag.name,
+      }));
       setNewTagName("");
       setIsAddTagDialogOpen(false);
+      
+      toast.success(`标签「${newTag.name}」已创建`);
+    } catch (error: any) {
+      console.error('Error creating tag:', error);
+      toast.error('创建标签失败', {
+        description: error.message || '请稍后重试'
+      });
     }
   };
 
   // 处理创建新文件夹
-  const handleCreateFolder = () => {
-    if (newFolderName.trim()) {
-      const newFolder = {
-        id: newFolderName.toLowerCase().replace(/\s+/g, '-'),
-        name: newFolderName.trim(),
-        icon: Folder,
-        wordIds: [] as string[]
-      };
-      setFolders([...folders, newFolder]);
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim() || !profileId) return;
+    
+    try {
+      const client = createSPAClient();
+      
+      // Create collection in database
+      const dbCollection = await createCollection(client, {
+        title: newFolderName.trim(),
+        owner_id: profileId,
+        visibility: 'private',
+        tags: [],
+      });
+      
+      // Transform to frontend format
+      const newFolder = transformCollection(dbCollection, [], Folder);
+      
+      // Add to folders list
+      setFolders(prev => [...prev, newFolder]);
+      
+      toast.success(`「${newFolderName.trim()}」已创建`);
       setNewFolderName("");
       setIsAddFolderDialogOpen(false);
+    } catch (error: any) {
+      console.error('Error creating collection:', error);
+      toast.error('创建收藏册失败', {
+        description: error.message || '请稍后重试'
+      });
     }
   };
 
@@ -364,8 +536,8 @@ export default function PoetryPage() {
   }, [sortedWords]);
 
   // 处理添加新词语
-  const handleAddWord = useCallback(() => {
-    if (!newWordInput.trim()) return;
+  const handleAddWord = useCallback(async () => {
+    if (!newWordInput.trim() || !profileId) return;
 
     // 去除前后空格
     let inputText = newWordInput.trim();
@@ -420,45 +592,82 @@ export default function PoetryPage() {
     const categories = parsedTags.length > 0 ? parsedTags : ['生活'];
     
     // 将新标签添加到标签列表（如果不存在）
+    // Note: Tags created from word input are temporary and not saved to database
+    // They will only persist if the user explicitly creates them via the tag creation dialog
     parsedTags.forEach(tagName => {
       const tagExists = tags.some(t => t.name === tagName);
       if (!tagExists) {
-        setTags(prev => [...prev, {
+        const newTag = {
           id: tagName.toLowerCase().replace(/\s+/g, '-'),
           name: tagName,
           icon: Tag
-        }]);
+        };
+        setTags(prev => [...prev, newTag]);
+        setCategoryMap(prev => ({
+          ...prev,
+          [newTag.id]: newTag.name,
+        }));
       }
     });
     
     // 生成随机颜色
     const colors = ['#d4895c', '#6b7d9e', '#8b7355', '#9e6b7d', '#7d9e9e', '#d49e5c', '#9e8b7d', '#7d6b9e', '#5c6b9e', '#9e7d6b', '#9e6b8b', '#8b9ead'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    const randomRotation = Math.random() * 6 - 3;
     
-    // 创建新词语
-    const newWord: Word = {
-      id: Date.now().toString(),
-      text: wordText,
-      categories: categories,
-      color: randomColor,
-      folder: selectedFolder || 'all',
-      createdAt: Date.now(),
-      rotation: Math.random() * 6 - 3, // 随机旋转角度
-    };
-    
-    // 添加到词语列表
-    setWords(prev => [newWord, ...prev]);
-    
-    // 成功���示
-    toast.success(`「${wordText}」已添加`, {
-      description: categories.length > 1 
-        ? `标签：${categories.join('、')}` 
-        : `标签：${categories[0]}`
-    });
-    
-    // 清空输入框
-    setNewWordInput('');
-  }, [newWordInput, selectedFolder, words, tags]);
+    try {
+      const client = createSPAClient();
+      
+      // Create word in database
+      const dbWord = await createWord(client, {
+        text: wordText,
+        tags: categories,
+        creator_id: profileId,
+        language: 'zh',
+        metadata: {
+          color: randomColor,
+          rotation: randomRotation,
+        } as any,
+      });
+      
+      // Transform to frontend format
+      const newWord = transformWord(dbWord, randomColor, randomRotation);
+      
+      // Add to words list
+      setWords(prev => [newWord, ...prev]);
+      
+      // If word is added to a collection (not "all"), add it to that collection
+      if (selectedFolder && selectedFolder !== 'all') {
+        try {
+          const { addWordToCollection } = await import('@/lib/api/collections');
+          await addWordToCollection(client, selectedFolder, dbWord.id);
+          // Update folder wordIds
+          setFolders(prev => prev.map(f => 
+            f.id === selectedFolder 
+              ? { ...f, wordIds: [...f.wordIds, dbWord.id] }
+              : f
+          ));
+        } catch (e) {
+          console.warn('Failed to add word to collection:', e);
+        }
+      }
+      
+      // Success toast
+      toast.success(`「${wordText}」已添加`, {
+        description: categories.length > 1 
+          ? `标签：${categories.join('、')}` 
+          : `标签：${categories[0]}`
+      });
+      
+      // Clear input
+      setNewWordInput('');
+    } catch (error: any) {
+      console.error('Error creating word:', error);
+      toast.error('添加词语失败', {
+        description: error.message || '请稍后重试'
+      });
+    }
+  }, [newWordInput, selectedFolder, words, tags, profileId]);
 
   // 处理词语点击（支持多选）
   const handleWordClick = useCallback((word: Word, e: React.MouseEvent) => {
@@ -488,44 +697,113 @@ export default function PoetryPage() {
   }, [selectedWord]);
 
   // 处理拖放到收藏册
-  const handleDropToFolder = useCallback((folderId: string, wordIds: string[]) => {
-    setFolders(prev => prev.map(folder => {
-      if (folder.id === folderId) {
-        // 添加词语ID到收藏册，避免重复
-        const newWordIds = [...new Set([...folder.wordIds, ...wordIds])];
-        return { ...folder, wordIds: newWordIds };
-      }
-      return folder;
-    }));
-    // 清空多选状态
-    setSelectedWords([]);
+  const handleDropToFolder = useCallback(async (folderId: string, wordIds: string[]) => {
+    // 跳过虚拟的 "all" 收藏册
+    if (folderId === 'all') {
+      toast.info('"所有内容" 是虚拟收藏册，无法添加词语');
+      return;
+    }
+    
+    try {
+      const client = createSPAClient();
+      
+      // 批量添加词语到收藏册
+      const addPromises = wordIds.map(wordId => 
+        addWordToCollection(client, folderId, wordId).catch(error => {
+          console.warn(`Failed to add word ${wordId} to collection ${folderId}:`, error);
+          return null; // 继续处理其他词语
+        })
+      );
+      
+      await Promise.all(addPromises);
+      
+      // 更新本地状态
+      setFolders(prev => prev.map(folder => {
+        if (folder.id === folderId) {
+          // 添加词语ID到收藏册，避免重复
+          const newWordIds = [...new Set([...folder.wordIds, ...wordIds])];
+          return { ...folder, wordIds: newWordIds };
+        }
+        return folder;
+      }));
+      
+      // 清空多选状态
+      setSelectedWords([]);
+      
+      // 显示成功提示
+      toast.success(`已将 ${wordIds.length} 个词语添加到收藏册`);
+    } catch (error: any) {
+      console.error('Error adding words to collection:', error);
+      toast.error('添加词语到收藏册失败', {
+        description: error.message || '请稍后重试'
+      });
+    }
   }, []);
 
   // 处理拖放到标签（添加/移除标签）
-  const handleDropToTag = useCallback((categoryName: string, wordIds: string[]) => {
-    setWords(prev => prev.map(word => {
-      if (wordIds.includes(word.id)) {
+  const handleDropToTag = useCallback(async (categoryName: string, wordIds: string[]) => {
+    try {
+      const client = createSPAClient();
+      
+      // 批量更新词语的标签
+      const updatePromises = wordIds.map(async (wordId) => {
+        const word = words.find(w => w.id === wordId);
+        if (!word) return;
+        
         // 检查词语是否已经有这个标签
         const hasCategory = word.categories.includes(categoryName);
+        let newTags: string[];
+        
         if (hasCategory) {
           // 如果已有该标签，则移除
-          return { 
-            ...word, 
-            categories: word.categories.filter(cat => cat !== categoryName)
-          };
+          newTags = word.categories.filter(cat => cat !== categoryName);
         } else {
           // 如果没有该标签，则添加
-          return { 
-            ...word, 
-            categories: [...word.categories, categoryName]
-          };
+          newTags = [...word.categories, categoryName];
         }
-      }
-      return word;
-    }));
-    // 清空多选状态
-    setSelectedWords([]);
-  }, []);
+        
+        // 更新数据库
+        await updateWord(client, wordId, {
+          tags: newTags,
+        });
+      });
+      
+      await Promise.all(updatePromises);
+      
+      // 更新本地状态
+      setWords(prev => prev.map(word => {
+        if (wordIds.includes(word.id)) {
+          // 检查词语是否已经有这个标签
+          const hasCategory = word.categories.includes(categoryName);
+          if (hasCategory) {
+            // 如果已有该标签，则移除
+            return { 
+              ...word, 
+              categories: word.categories.filter(cat => cat !== categoryName)
+            };
+          } else {
+            // 如果没有该标签，则添加
+            return { 
+              ...word, 
+              categories: [...word.categories, categoryName]
+            };
+          }
+        }
+        return word;
+      }));
+      
+      // 清空多选状态
+      setSelectedWords([]);
+      
+      // 显示成功提示
+      toast.success(`已${wordIds.some(id => words.find(w => w.id === id)?.categories.includes(categoryName)) ? '移除' : '添加'}标签`);
+    } catch (error: any) {
+      console.error('Error updating word tags:', error);
+      toast.error('更新标签失败', {
+        description: error.message || '请稍后重试'
+      });
+    }
+  }, [words]);
 
   // 注意：作品集和编辑视图由独立的页面处理（/app/poetry/collection 和 /app/poetry/edit/[id]）
   // 这里只显示主工作区
@@ -553,7 +831,7 @@ export default function PoetryPage() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               className="gap-2 btn-hover rounded-xl"
@@ -585,14 +863,14 @@ export default function PoetryPage() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--paper-bg)] transition-all duration-300 btn-hover" style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                <Avatar className="h-9 w-9">
+                <button className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[var(--paper-bg)] transition-all duration-300 btn-hover" style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                <Avatar className="h-8 w-8">
                   <AvatarFallback 
                     className="font-serif"
                     style={{ 
                       backgroundColor: '#7dd3fc', 
                       color: '#0c4a6e',
-                      fontSize: '14px',
+                      fontSize: '12px',
                       fontWeight: '600'
                     }}
                   >
@@ -604,8 +882,14 @@ export default function PoetryPage() {
                     })() : '??'}
                   </AvatarFallback>
                 </Avatar>
-                <span style={{ color: 'var(--paper-text)' }}>{user?.email || 'Loading...'}</span>
-                <ChevronDown className="w-4 h-4" style={{ color: 'var(--paper-text-secondary)' }} />
+                <span 
+                  className="hidden sm:inline-block max-w-[120px] truncate text-sm"
+                  style={{ color: 'var(--paper-text)' }}
+                  title={user?.email || 'Loading...'}
+                >
+                  {user ? user.email.split('@')[0] : 'Loading...'}
+                </span>
+                <ChevronDown className="w-4 h-4 hidden sm:block" style={{ color: 'var(--paper-text-secondary)' }} />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 paper-card">
@@ -1924,22 +2208,41 @@ export default function PoetryPage() {
                   color: '#fff',
                   fontWeight: '500'
                 }}
-                disabled={!selectedFolderForPoem}
-                onClick={() => {
-                  if (!selectedFolderForPoem) return;
+                disabled={!selectedFolderForPoem || !profileId}
+                onClick={async () => {
+                  if (!selectedFolderForPoem || !profileId) return;
                   
-                  const newPoem: Poem = {
-                    id: `poem${Date.now()}`,
-                    title: '未命名作品',
-                    wordIds: [],
-                    createdAt: Date.now(),
-                    description: '',
-                    folderId: selectedFolderForPoem, // 保存关联的收藏册
-                  };
-                  setPoems([newPoem, ...poems]);
-                  setIsCreatePoemDialogOpen(false);
-                  setSelectedFolderForPoem(null);
-                  router.push(`/app/poetry/edit/${newPoem.id}`);
+                  try {
+                    const client = createSPAClient();
+                    
+                    // Create poem in database first
+                    const dbPoem = await createPoetryWithContent(client, {
+                      title: '未命名作品',
+                      creator_id: profileId,
+                      description: '',
+                      content: [], // Empty content for new poem
+                      metadata: {
+                        folderId: selectedFolderForPoem,
+                      } as any,
+                    });
+                    
+                    // Transform to frontend format
+                    const newPoem = transformPoetry(dbPoem, []);
+                    newPoem.folderId = selectedFolderForPoem;
+                    
+                    // Add to local state
+                    setPoems([newPoem, ...poems]);
+                    setIsCreatePoemDialogOpen(false);
+                    setSelectedFolderForPoem(null);
+                    
+                    // Navigate to edit page
+                    router.push(`/app/poetry/edit/${dbPoem.id}`);
+                  } catch (error: any) {
+                    console.error('Error creating poem:', error);
+                    toast.error('创建作品失败', {
+                      description: error.message || '请稍后重试'
+                    });
+                  }
                 }}
               >
                 <Plus className="w-4 h-4" />

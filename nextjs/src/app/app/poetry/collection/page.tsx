@@ -1,6 +1,13 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useGlobal } from '@/lib/context/GlobalContext';
+import { createSPAClient } from '@/lib/supabase/client';
+import { getWords } from '@/lib/api/words';
+import { getCollections } from '@/lib/api/collections';
+import { getPoetryByCreator, deletePoetry } from '@/lib/api/poetry';
+import { transformWord, transformCollection, transformPoetry } from '@/lib/utils/dataTransform';
+import { toast } from 'sonner';
 import { ArrowLeft, Calendar, Folder, FileText, Edit, Trash2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,27 +47,143 @@ interface Poem {
 
 export default function PoemCollectionPage() {
   const router = useRouter();
+  const { user, loading: userLoading } = useGlobal();
+  const [loading, setLoading] = useState(true);
+  const [profileId, setProfileId] = useState<string | null>(null);
   
-  // TODO: 从 Supabase API 获取数据
   const [poems, setPoems] = useState<Poem[]>([]);
   const [words, setWords] = useState<Word[]>([]);
-  const [folders, setFolders] = useState<{ id: string; name: string; icon: any; wordIds: string[] }[]>([]);
+  const [folders, setFolders] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedPoem, setSelectedPoem] = useState<Poem | null>(null);
+  
+  // Load data from Supabase
+  useEffect(() => {
+    async function loadData() {
+      if (userLoading || !user?.id) return;
+      
+      setLoading(true);
+      try {
+        const client = createSPAClient();
+        
+        // Get user profile
+        const { data: profile, error: profileError } = await client
+          .from('profiles')
+          .select('id')
+          .eq('auth_uid', user.id)
+          .single();
+        
+        if (profileError || !profile) {
+          console.error('Failed to load profile:', profileError);
+          toast.error('无法加载用户信息');
+          setLoading(false);
+          return;
+        }
+        
+        setProfileId(profile.id);
+        
+        // Load words
+        const wordsResult = await getWords(client, { 
+          page: 1, 
+          pageSize: 1000,
+          orderBy: 'created_at',
+          orderDirection: 'desc'
+        });
+        
+        const transformedWords = wordsResult.words.map(dbWord => transformWord(dbWord));
+        setWords(transformedWords);
+        
+        // Load collections (folders)
+        const collectionsResult = await getCollections(client, {
+          page: 1,
+          pageSize: 100,
+          orderBy: 'created_at',
+          orderDirection: 'desc'
+        });
+        
+        const transformedFolders = collectionsResult.collections.map(dbCollection => ({
+          id: dbCollection.id,
+          name: dbCollection.title,
+        }));
+        setFolders(transformedFolders);
+        
+        // Load poetry
+        const poetryResult = await getPoetryByCreator(client, profile.id, {
+          page: 1,
+          pageSize: 100,
+          orderBy: 'created_at',
+          orderDirection: 'desc'
+        });
+        
+        // Transform poetry and extract word IDs from content
+        const transformedPoems = poetryResult.poetry.map((dbPoetry) => {
+          let wordIds: string[] = [];
+          if (dbPoetry.content) {
+            try {
+              const content = dbPoetry.content as any;
+              if (Array.isArray(content)) {
+                wordIds = content
+                  .filter((block: any) => block.type === 'word' && block.word_id)
+                  .map((block: any) => block.word_id);
+              }
+            } catch (e) {
+              console.warn('Failed to parse poetry content:', e);
+            }
+          }
+          return transformPoetry(dbPoetry, wordIds);
+        });
+        
+        setPoems(transformedPoems);
+        if (transformedPoems.length > 0) {
+          setSelectedPoem(transformedPoems[0]);
+        }
+        
+      } catch (error: any) {
+        console.error('Error loading data:', error);
+        toast.error('加载数据失败', {
+          description: error.message || '请稍后重试'
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadData();
+  }, [user, userLoading]);
   
   const handleBack = () => {
-    router.push('/app/poetry');
+    router.push('/app');
   };
   
   const handleEdit = (poem: Poem) => {
     router.push(`/app/poetry/edit/${poem.id}`);
   };
   
-  const handleDelete = (poemId: string) => {
-    // TODO: 调用 API 删除
-    setPoems(poems.filter(p => p.id !== poemId));
+  const handleDelete = async (poemId: string) => {
+    try {
+      const client = createSPAClient();
+      await deletePoetry(client, poemId);
+      
+      // Update poems state
+      const updatedPoems = poems.filter(p => p.id !== poemId);
+      setPoems(updatedPoems);
+      
+      // Update selectedPoem if the deleted poem was selected
+      if (selectedPoem?.id === poemId) {
+        setSelectedPoem(updatedPoems.length > 0 ? updatedPoems[0] : null);
+      }
+      
+      toast.success('作品已删除');
+    } catch (error: any) {
+      console.error('Error deleting poetry:', error);
+      toast.error('删除失败', {
+        description: error.message || '请稍后重试'
+      });
+    }
   };
-  const [selectedPoem, setSelectedPoem] = useState<Poem | null>(
-    poems.length > 0 ? poems[0] : null
-  );
+  
+  if (loading || userLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
 
   // 按时间排序作品
   const sortedPoems = [...poems].sort((a, b) => b.createdAt - a.createdAt);
@@ -182,9 +305,6 @@ export default function PoemCollectionPage() {
                             onClick={() => {
                               if (confirm(`确定要删除作品「${poem.title}」吗？`)) {
                                 handleDelete(poem.id);
-                                if (selectedPoem?.id === poem.id) {
-                                  setSelectedPoem(sortedPoems[0]?.id !== poem.id ? sortedPoems[0] : null);
-                                }
                               }
                             }}
                           >
