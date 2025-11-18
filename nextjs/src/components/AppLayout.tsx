@@ -9,7 +9,7 @@ import {
     X,
     ChevronDown,
     LogOut,
-    Key, Files, LucideListTodo,
+    Key, Files, LucideListTodo, BookOpen,
 } from 'lucide-react';
 import { useGlobal } from "@/lib/context/GlobalContext";
 import { createSPASassClient } from "@/lib/supabase/client";
@@ -45,9 +45,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const productName = process.env.NEXT_PUBLIC_PRODUCTNAME;
 
     const navigation = [
-        { name: 'Homepage', href: '/app', icon: Home },
+        { name: '拼贴诗', href: '/app', icon: BookOpen },
         { name: 'Example Storage', href: '/app/storage', icon: Files },
         { name: 'Example Table', href: '/app/table', icon: LucideListTodo },
+        { name: 'API Test', href: '/app/test', icon: Key },
         { name: 'User Settings', href: '/app/user-settings', icon: User },
     ];
 

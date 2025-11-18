@@ -40,7 +40,13 @@ export default function LoginPage() {
             }
         } catch (err) {
             if (err instanceof Error) {
-                setError(err.message);
+                // 检查是否是网络错误
+                const errorMsg = err.message.toLowerCase();
+                if (errorMsg.includes('fetch') || errorMsg.includes('networkerror') || errorMsg.includes('failed to fetch') || errorMsg.includes('network request failed')) {
+                    setError('无法连接到 Supabase 服务。\n\n解决方案：\n1. 确保 Docker Desktop 正在运行\n2. 在项目根目录运行: npx supabase start\n3. 或者配置远程 Supabase 服务的 URL 和 Key');
+                } else {
+                    setError(err.message);
+                }
             } else {
                 setError('An unknown error occurred');
             }
@@ -60,7 +66,7 @@ export default function LoginPage() {
     return (
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
             {error && (
-                <div className="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg">
+                <div className="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg whitespace-pre-wrap">
                     {error}
                 </div>
             )}

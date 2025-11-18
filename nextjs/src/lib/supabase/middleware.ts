@@ -33,13 +33,27 @@ export async function updateSession(request: NextRequest) {
 
     // IMPORTANT: DO NOT REMOVE auth.getUser()
 
-    const {data: user} = await supabase.auth.getUser()
-    if (
-        (!user || !user.user) && request.nextUrl.pathname.startsWith('/app')
-    ) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/auth/login'
-        return NextResponse.redirect(url)
+    // 临时允许访问 poetry 页面进行测试（不需要认证）
+    // /app 是拼贴诗应用的主页面，/app/poetry/* 是子页面，都使用自己的完整布局
+    const isPoetryPage = request.nextUrl.pathname === '/app' || request.nextUrl.pathname.startsWith('/app/poetry')
+    
+    try {
+        const {data: user} = await supabase.auth.getUser()
+        if (
+            (!user || !user.user) && request.nextUrl.pathname.startsWith('/app') && !isPoetryPage
+        ) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/auth/login'
+            return NextResponse.redirect(url)
+        }
+    } catch (error) {
+        // 如果 Supabase 连接失败，允许访问 poetry 页面
+        console.warn('Supabase connection failed, allowing access to poetry pages for testing:', error)
+        if (!isPoetryPage && request.nextUrl.pathname.startsWith('/app')) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/auth/login'
+            return NextResponse.redirect(url)
+        }
     }
 
     // IMPORTANT: You *must* return the supabaseResponse object as it is.

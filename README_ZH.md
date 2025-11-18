@@ -2,6 +2,19 @@
 
 你好，我叫 Adam (Razikus) - 我正在学习中文，但这个 README 已被翻译。如果你发现错误 - 请报告！
 
+## 📝 前端代码更新
+
+本项目集成了来自 [Poetrupfrontend](https://github.com/SongshGeo/Poetrupfrontend.git) 的前端设计。
+
+**快速更新前端代码：**
+```bash
+./scripts/update-frontend.sh
+```
+
+详细更新指南请查看：[docs/FRONTEND_UPDATE_GUIDE.md](./docs/FRONTEND_UPDATE_GUIDE.md)
+
+---
+
 一个生产就绪的 SaaS 模板，使用 Next.js 15、Supabase 和 Tailwind CSS 构建。此模板提供了快速启动 SaaS 产品所需的一切，包括身份验证、用户管理、文件存储等。
 
 > **🎉 新功能：移动应用现已推出！** 查看 [README_MOBILE_ZH.md](./README_MOBILE_ZH.md) 了解与同一 Supabase 后端共享的完整 React Native + Expo 移动应用！
