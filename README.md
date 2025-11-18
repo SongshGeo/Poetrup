@@ -1,214 +1,247 @@
-# Supabase Full-Stack SaaS Template
+# 拼贴诗 - Poetry Collage App
 
-A production-ready SaaS template built with Next.js 15, Supabase, and Tailwind CSS. This template provides everything you need to quickly launch your SaaS product, including authentication, user management, file storage, and more.
+**Poetrup** - 一个优雅的中文词语采集与拼贴诗创作应用
 
+> 🇺🇸 [English Version](./README_EN.md) | 🇨🇳 中文版（当前）
 
-> **🎉 NEW: Mobile App Now Available!** Check out [README_MOBILE.md](./README_MOBILE.md) for the complete React Native + Expo mobile app that shares the same Supabase backend!
-> https://youtube.com/shorts/qcASa0Ywsy4?feature=share
+---
 
+## 📖 关于本项目
 
-## 🇨🇳 Chinese Documentation Available
+**拼贴诗（Poetrup）** 是一个专注于中文词语采集和拼贴诗创作的 Web 应用。用户可以收集喜欢的词语，将它们分类整理到不同的收藏册中，并通过拖拽的方式创作独特的拼贴诗作品。
 
-[中文文档](./README_ZH.md) | [移动端中文文档](./README_MOBILE_ZH.md)
+### 核心功能
 
-This repository includes full documentation in Simplified Chinese:
-- **README_ZH.md** - Complete Chinese translation of the main documentation
-- **README_MOBILE_ZH.md** - Complete Chinese translation of the mobile app documentation
+- 📝 **词语管理**
+  - 添加、编辑、删除词语
+  - 支持自定义标签分类
+  - 词语使用统计
 
-本仓库包含完整的简体中文文档：
-- **README_ZH.md** - 主文档的完整中文翻译
-- **README_MOBILE_ZH.md** - 移动应用文档的完整中文翻译
+- 📚 **收藏册**
+  - 创建多个收藏册来组织词语
+  - 支持公开、共享、私密三种可见性
+  - 拖拽词语到收藏册
 
-## LIVE DEMO
+- ✍️ **拼贴诗创作**
+  - 可视化拖拽创作界面
+  - 支持词语位置、旋转、颜色自定义
+  - 作品保存和编辑
 
-Demo is here - https://basicsass.razikus.com
+- 🏷️ **标签系统**
+  - 为词语添加标签进行分类
+  - 支持自定义标签类别
+  - 按标签筛选词语
 
+- 👤 **用户系统**
+  - 用户注册和登录
+  - 个人作品集管理
+  - 用户偏好设置（保存在 profile.metadata）
 
-## Self promo
-Hey, don't be a code printer in AI era. Check my book
-```
-http://razikus.gumroad.com/l/dirtycode - live now!
-https://www.amazon.com/dp/B0FNR716CF - live from 01.09
-https://books.apple.com/us/book/dirty-code-but-works/id6751538660 - live from 01.09
-https://play.google.com/store/books/details?id=5UWBEQAAQBAJ - live from 01.09
-```
+## 🛠️ 技术栈
 
-## Deployment video
+### Frontend / 前端
+- **Next.js 15** (App Router)
+- **React 19**
+- **Tailwind CSS** - 样式框架
+- **shadcn/ui** - UI 组件库
+- **React DnD** - 拖拽功能
+- **Sonner** - Toast 通知
+- **next-themes** - 主题管理
 
-Video is here - https://www.youtube.com/watch?v=kzbXavLndmE
+### Backend / 后端
+- **Supabase** - 后端即服务（BaaS）
+  - PostgreSQL 数据库
+  - Row Level Security (RLS)
+  - Authentication
+  - Storage Buckets
+  - Edge Functions（中文分词）
 
-## Migration from auth schema
+### 设计
+- 前端设计来自 [Poetrupfrontend](https://github.com/SongshGeo/Poetrupfrontend.git)
+- 纸张纹理主题，优雅的视觉体验
 
-According to this - https://github.com/Razikus/supabase-nextjs-template/issues/4
+## 🚀 快速开始
 
-We are no longer able to modify auth schema. I modified original migrations to rename it to custom schema. If you need to migrate from older version - check supabase/migrations_for_old/20250525183944_auth_removal.sql
+### 前置要求
 
-## 🚀 Features
+1. Node.js 18+ 和 Yarn
+2. Supabase 账户和项目
+3. Supabase CLI（用于数据库迁移）
 
-- **Authentication**
-    - Email/Password authentication
-    - Multi-factor authentication (MFA) support
-    - OAuth/SSO integration ready
-    - Password reset and email verification
+### 安装步骤
 
-- **User Management**
-    - User profiles and settings
-    - Secure password management
-    - Session handling
-
-- **File Management Demo (2FA ready)**
-    - Secure file upload and storage
-    - File sharing capabilities
-    - Drag-and-drop interface
-    - Progress tracking
-
-- **Task Management Demo (2FA ready)**
-    - CRUD operations example
-    - Real-time updates
-    - Filtering and sorting
-    - Row-level security
-
-- **Security**
-    - Row Level Security (RLS) policies
-    - Secure file storage policies
-    - Protected API routes
-    - MFA implementation
-
-- **UI/UX**
-    - Modern, responsive design
-    - Dark mode support
-    - Loading states
-    - Error handling
-    - Toast notifications
-    - Confetti animations
-
-- **Legal & Compliance**
-    - Privacy Policy template
-    - Terms of Service template
-    - Refund Policy template
-    - GDPR-ready cookie consent
-
-## 🛠️ Tech Stack
-
-- **Frontend**
-    - Next.js 15 (App Router)
-    - React 19
-    - Tailwind CSS
-    - shadcn/ui components
-    - Lucide icons
-
-- **Backend**
-    - Supabase
-    - PostgreSQL
-    - Row Level Security
-    - Storage Buckets
-
-- **Authentication**
-    - Supabase Auth
-    - MFA support
-    - OAuth providers
-
-## 📦 Getting Started - local dev
-
-1. Fork or clone repository
-2. Prepare Supabase Project URL (Project URL from `Project Settings` -> `API` -> `Project URL`)
-3. Prepare Supabase Anon and Service Key (`Anon Key`, `Service Key` from `Project Settings` -> `API` -> `anon public` and `service_role`)
-4. Prepare Supabase Database Password  (You can reset it inside `Project Settings` -> `Database` -> `Database Password`)
-5. If you already know your app url -> adjust supabase/config.toml `site_url` and `additional_redirect_urls`, you can do it later
-6. Run following commands (inside root of forked / downloaded repository):
+#### 1. 克隆仓库
 
 ```bash
-# Login to supabase
+git clone https://github.com/SongshGeo/Poetrup.git
+cd Poetrup
+```
+
+#### 2. 连接 Supabase 项目
+
+```bash
+# 登录 Supabase
 npx supabase login
-# Link project to supabase (require database password) - you will get selector prompt
+
+# 连接到你的 Supabase 项目（会提示选择项目）
 npx supabase link
 
-# Send config to the server - may require confirmation (y)
+# 推送配置到服务器
 npx supabase config push
+```
 
-# Up migrations
+#### 3. 运行数据库迁移
+
+```bash
+# 执行所有迁移文件
 npx supabase migrations up --linked
-
 ```
 
-7. Go to next/js folder and run `yarn`
-8. Copy .env.template to .env.local
-9. Adjust .env.local
+这将创建以下数据库结构：
+- `profiles` - 用户档案
+- `words` - 词语表
+- `collections` - 收藏册表
+- `collection_words` - 词语与收藏册关联表
+- `poetry` - 作品表
+- `poetry_collections` - 作品与收藏册关联表
+- `favorites` - 收藏表
+
+详细迁移指南请查看：[docs/MIGRATION_GUIDE.md](./docs/MIGRATION_GUIDE.md)
+
+#### 4. 配置环境变量
+
+在 `nextjs/.env.local` 文件中配置：
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+PRIVATE_SUPABASE_SERVICE_KEY=your_service_role_key
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://APIURL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=ANONKEY
-PRIVATE_SUPABASE_SERVICE_KEY=SERVICEROLEKEY
+
+你可以在 Supabase 控制台的 `项目设置` -> `API` 中找到这些密钥。
+
+#### 5. 安装依赖并启动
+
+```bash
+cd nextjs
+yarn install
+yarn dev
+```
+
+访问 http://localhost:3000 🎉
+
+## 📝 前端代码更新
+
+本项目集成了来自 [Poetrupfrontend](https://github.com/SongshGeo/Poetrupfrontend.git) 的前端设计。
+
+**快速更新前端代码：**
+```bash
+./scripts/update-frontend.sh
+```
+
+详细更新指南请查看：[docs/前端更新后同步指南.md](./docs/前端更新后同步指南.md)
+
+## 📚 项目结构
 
 ```
-10. Run yarn dev
-11. Go to http://localhost:3000 🎉
+Poetrup/
+├── nextjs/                    # Next.js 前端应用
+│   ├── src/
+│   │   ├── app/              # App Router 页面
+│   │   │   ├── app/          # 主应用页面（拼贴诗）
+│   │   │   │   ├── page.tsx              # 主页面（词语管理）
+│   │   │   │   └── poetry/               # 作品相关页面
+│   │   │   │       ├── collection/       # 作品集
+│   │   │   │       └── edit/[id]/       # 编辑作品
+│   │   │   └── auth/         # 认证页面
+│   │   ├── components/       # React 组件
+│   │   │   ├── ui/           # shadcn/ui 组件
+│   │   │   └── ...           # 业务组件
+│   │   └── lib/              # 工具函数和 API
+│   │       ├── api/          # Supabase API 封装
+│   │       │   ├── words.ts      # 词语 API
+│   │       │   ├── collections.ts # 收藏册 API
+│   │       │   └── poetry.ts    # 作品 API
+│   │       └── utils/        # 工具函数
+│   └── package.json
+├── supabase/                  # Supabase 配置和迁移
+│   ├── migrations/           # 数据库迁移文件
+│   ├── functions/            # Edge Functions
+│   └── config.toml           # Supabase 配置
+├── scripts/                   # 工具脚本
+│   └── update-frontend.sh    # 前端更新脚本
+└── docs/                      # 文档
+    ├── MIGRATION_GUIDE.md     # 迁移指南
+    └── 前端更新后同步指南.md  # 前端更新指南
+```
 
-## 🚀 Getting Started - deploy to vercel
+## 🔑 核心功能说明
 
-1. Fork or clone repository
-2. Create project in Vercel - choose your repo
-3. Paste content of .env.local into environment variables
-4. Click deploy
-5. Adjust in supabase/config.toml site_url and additional_redirect_urls (important in additional_redirect_urls is to have https://YOURURL/** - these 2 **)
-6. Done!
+### 词语管理
 
-## 📄 Legal Documents
+- 用户可以添加中文词语，系统会自动提取标签（如 `#电影`、`#心情`）
+- 词语可以关联多个标签
+- 支持搜索和筛选
 
-The template includes customizable legal documents - these are in markdown, so you can adjust them as you see fit:
+### 收藏册
 
-- Privacy Policy (`/public/terms/privacy-notice.md`)
-- Terms of Service (`/public/terms/terms-of-service.md`)
-- Refund Policy (`/public/terms/refund-policy.md`)
+- 创建收藏册来组织词语
+- 支持三种可见性：私密、共享、公开
+- 通过拖拽将词语添加到收藏册
 
-## 🎨 Theming
+### 拼贴诗创作
 
-The template includes several pre-built themes:
-- `theme-sass` (Default)
-- `theme-blue`
-- `theme-purple`
-- `theme-green`
+- 可视化创作界面，支持拖拽词语到画布
+- 每个词语可以设置位置、旋转角度、颜色
+- 作品内容以 JSONB 格式存储在数据库中
 
-Change the theme by updating the `NEXT_PUBLIC_THEME` environment variable.
+### 数据持久化
 
-## 🤝 Contributing
+所有操作都会自动保存到 Supabase 数据库：
+- 创建词语 → `words` 表
+- 创建收藏册 → `collections` 表
+- 拖动词语到收藏册 → `collection_words` 表
+- 创建/编辑作品 → `poetry` 表
+- 创建标签 → `profile.metadata.tags`
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## 📖 文档
 
+- [数据库迁移指南](./docs/MIGRATION_GUIDE.md)
+- [前端更新指南](./docs/前端更新后同步指南.md)
+- [API 文档](./nextjs/src/lib/api/README.md)
 
-## Need Multitenancy, Billing (Paddle) and Role Based Access Control?
+## 🔒 安全特性
 
-I have paid template as well available here:
+- **Row Level Security (RLS)** - 数据库行级安全策略
+- **用户认证** - Supabase Auth 集成
+- **数据隔离** - 用户只能访问自己的数据
 
-https://sasstemplate.razikus.com
+## 🚀 部署
 
-Basically it's the same template but with Paddle + organisations API keys + multiple organisations + Role Based Access Control
+### Vercel 部署
 
-For code GITHUB you can get -50% off
+1. Fork 或克隆仓库
+2. 在 Vercel 创建项目，选择你的仓库
+3. 将 `.env.local` 的内容粘贴到环境变量中
+4. 点击部署
+5. 在 `supabase/config.toml` 中调整 `site_url` 和 `additional_redirect_urls`（重要：`additional_redirect_urls` 中需要包含 `https://YOURURL/**`，注意两个星号）
 
-https://razikus.gumroad.com/l/supatemplate/GITHUB
+## 🤝 贡献
 
-## 📝 License
+欢迎贡献！请随时提交 Pull Request。
 
-This project is licensed under the Apache License - see the LICENSE file for details.
+## 📝 许可证
 
-## 💪 Support
+本项目采用 Apache License 2.0 许可证 - 详见 LICENSE 文件。
 
-If you find this template helpful, please consider giving it a star ⭐️
-
-Or buy me a coffee!
-
-- [BuyMeACoffee](https://buymeacoffee.com/razikus)
-
-My socials:
-
-- [Twitter](https://twitter.com/Razikus_)
-- [GitHub](https://github.com/Razikus)
-- [Website](https://www.razikus.com)
-
-
-## 🙏 Acknowledgments
+## 🙏 致谢
 
 - [Next.js](https://nextjs.org/)
 - [Supabase](https://supabase.com/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [shadcn/ui](https://ui.shadcn.com/)
+- 前端设计：[Poetrupfrontend](https://github.com/SongshGeo/Poetrupfrontend.git)
+
+---
+
+**享受创作拼贴诗的乐趣！** 🎨✨

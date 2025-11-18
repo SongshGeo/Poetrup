@@ -40,11 +40,12 @@ npx supabase migrations up --linked
 
 这将按顺序执行以下迁移：
 
-1. `20250201000000_poetry_core_schema.sql` - 创建核心表结构
-2. `20250201000001_poetry_indexes_triggers.sql` - 创建索引和触发器
-3. `20250201000002_poetry_rls_policies.sql` - 创建 RLS 策略
-4. `20250201000003_poetry_storage_buckets.sql` - 创建存储桶
-5. `20250201000004_poetry_seed_data.sql` - 插入测试数据
+1. `20250201000000_poetry_core_schema.sql` - 创建核心表结构（词语、收藏册、作品等）
+2. `20250201000001_poetry_indexes_triggers.sql` - 创建索引和触发器（全文搜索、更新时间戳等）
+3. `20250201000002_poetry_rls_policies.sql` - 创建 RLS 策略（行级安全策略）
+4. `20250201000003_poetry_storage_buckets.sql` - 创建存储桶（用于存储作品封面等文件）
+5. `20250201000004_poetry_seed_data.sql` - 插入测试数据（30个词语、4个收藏册、3首示例作品）
+6. `20250201000005_auto_create_profile.sql` - 自动创建用户档案（当用户注册时自动创建 profile）
 
 ## 步骤 4: 验证迁移
 
@@ -94,6 +95,8 @@ npx supabase functions serve tokenize-chinese
 
 1. 通过 Supabase Auth 创建用户（在 Supabase 控制台的 Authentication 页面）
 2. 或者通过你的应用注册页面创建用户
+
+**注意**：迁移 `20250201000005_auto_create_profile.sql` 会自动为所有新注册的用户创建 profile 记录。如果你有已存在的用户，该迁移也会为这些用户创建 profile。
 
 seed 数据脚本会自动使用第一个可用的用户来创建测试数据。
 
