@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run full type check and lint before push
+echo "🔍 Running full type check and lint..."
+yarn check
+

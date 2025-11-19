@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Change to nextjs directory
+cd nextjs
+
+# Run lint-staged to check only staged files
+yarn check:staged
+

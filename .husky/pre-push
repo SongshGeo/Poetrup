@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Change to nextjs directory
+cd nextjs
+
+# Run full type check and lint before push
+echo "🔍 Running full type check and lint..."
+yarn verify
+
