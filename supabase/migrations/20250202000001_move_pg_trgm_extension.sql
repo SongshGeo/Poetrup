@@ -5,6 +5,9 @@
 -- The indexes will be automatically recreated, but queries using trigram matching
 -- may be slower during the migration.
 
+-- Set search_path to include extensions schema for the entire migration
+SET LOCAL search_path = public, extensions;
+
 -- Create extensions schema if it doesn't exist
 CREATE SCHEMA IF NOT EXISTS extensions;
 
@@ -21,8 +24,8 @@ DROP EXTENSION IF EXISTS pg_trgm CASCADE;
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
 
 -- Step 4: Recreate the indexes
--- Note: gin_trgm_ops is now in extensions schema, but PostgreSQL will find it automatically
--- If you encounter issues, you may need to explicitly reference extensions.gin_trgm_ops
+-- Note: gin_trgm_ops is now in extensions schema
+-- search_path is already set at the beginning of this migration
 CREATE INDEX IF NOT EXISTS idx_words_text_trgm 
 ON public.words 
 USING GIN(text gin_trgm_ops);
