@@ -33,7 +33,7 @@ export interface WordSearchResult {
  * Get words with pagination and filtering
  */
 export async function getWords(
-  client: SupabaseClient<Database, "public", Database["public"]>,
+  client: SupabaseClient<Database>,
   options: WordSearchOptions = {}
 ): Promise<WordSearchResult> {
   const {
@@ -93,7 +93,7 @@ export async function getWords(
  * Get a single word by ID
  */
 export async function getWordById(
-  client: SupabaseClient<Database, "public", Database["public"]>,
+  client: SupabaseClient<Database>,
   wordId: string
 ): Promise<Word | null> {
   const { data, error } = await client
@@ -117,7 +117,7 @@ export async function getWordById(
  * Create a new word
  */
 export async function createWord(
-  client: SupabaseClient<Database, "public", Database["public"]>,
+  client: SupabaseClient<Database>,
   word: WordInsert
 ): Promise<Word> {
   const { data, error } = await client
@@ -137,7 +137,7 @@ export async function createWord(
  * Update a word
  */
 export async function updateWord(
-  client: SupabaseClient<Database, "public", Database["public"]>,
+  client: SupabaseClient<Database>,
   wordId: string,
   updates: WordUpdate
 ): Promise<Word> {
@@ -162,7 +162,7 @@ export async function updateWord(
  * Delete a word (soft delete)
  */
 export async function deleteWord(
-  client: SupabaseClient<Database, "public", Database["public"]>,
+  client: SupabaseClient<Database>,
   wordId: string
 ): Promise<void> {
   const { error } = await client
@@ -179,7 +179,7 @@ export async function deleteWord(
  * Search words using full-text search
  */
 export async function searchWords(
-  client: SupabaseClient<Database, "public", Database["public"]>,
+  client: SupabaseClient<Database>,
   searchQuery: string,
   options: Omit<WordSearchOptions, 'query'> = {}
 ): Promise<WordSearchResult> {
@@ -190,7 +190,7 @@ export async function searchWords(
  * Get words by tags
  */
 export async function getWordsByTags(
-  client: SupabaseClient<Database, "public", Database["public"]>,
+  client: SupabaseClient<Database>,
   tags: string[],
   options: Omit<WordSearchOptions, 'tags'> = {}
 ): Promise<WordSearchResult> {
@@ -201,7 +201,7 @@ export async function getWordsByTags(
  * Get words by creator
  */
 export async function getWordsByCreator(
-  client: SupabaseClient<Database, "public", Database["public"]>,
+  client: SupabaseClient<Database>,
   creatorId: string,
   options: Omit<WordSearchOptions, 'creatorId'> = {}
 ): Promise<WordSearchResult> {
@@ -212,18 +212,24 @@ export async function getWordsByCreator(
  * Increment word usage count
  */
 export async function incrementWordUsage(
-  client: SupabaseClient<Database, "public", Database["public"]>,
+  client: SupabaseClient<Database>,
   wordId: string
 ): Promise<void> {
-  const { error } = await client.rpc('increment_word_usage', {
+  // Type assertion needed due to Supabase RPC type inference limitation
+  const rpcClient = client.rpc as unknown as {
+    (name: string, args: { word_id: string }): Promise<{ error: { message: string; code?: string } | null }>;
+  };
+  const { error } = await rpcClient('increment_word_usage', {
     word_id: wordId,
   });
 
   // If RPC doesn't exist, use update
-  if (error && error.code === '42883') {
-    const { data: word } = await getWordById(client, wordId);
+  if (error && (error as { code?: string }).code === '42883') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const word = await getWordById(client as any, wordId);
     if (word) {
-      await updateWord(client, wordId, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await updateWord(client as any, wordId, {
         usage_count: (word.usage_count || 0) + 1,
       });
     }

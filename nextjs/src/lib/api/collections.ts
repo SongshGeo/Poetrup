@@ -176,14 +176,22 @@ export async function createCollection(
   client: ReturnType<typeof createSPAClient>,
   collection: CollectionInsert
 ): Promise<Collection> {
-  const { data, error } = await (client
-    .from('collections')
-    .insert(collection as CollectionInsert)
-    .select()
-    .single() as Promise<{ data: Collection | null; error: { message: string } | null }>);
+  // Type assertion needed due to Supabase type inference limitation
+  const collectionsTable = client.from('collections') as unknown as {
+    insert: (value: CollectionInsert) => {
+      select: () => {
+        single: () => Promise<{ data: Collection | null; error: { message: string } | null }>;
+      };
+    };
+  };
+  const { data, error } = await collectionsTable.insert(collection).select().single();
 
   if (error) {
     throw new Error(`Failed to create collection: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error('Failed to create collection: no data returned');
   }
 
   return data;
@@ -197,15 +205,24 @@ export async function updateCollection(
   collectionId: string,
   updates: CollectionUpdate
 ): Promise<Collection> {
-  const { data, error } = await client
-    .from('collections')
-    .update(updates)
-    .eq('id', collectionId)
-    .select()
-    .single();
+  // Type assertion needed due to Supabase type inference limitation
+  const collectionsTable = client.from('collections') as unknown as {
+    update: (value: CollectionUpdate) => {
+      eq: (column: string, value: string) => {
+        select: () => {
+          single: () => Promise<{ data: Collection | null; error: { message: string } | null }>;
+        };
+      };
+    };
+  };
+  const { data, error } = await collectionsTable.update(updates).eq('id', collectionId).select().single();
 
   if (error) {
     throw new Error(`Failed to update collection: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error('Failed to update collection: no data returned');
   }
 
   return data;
@@ -218,10 +235,13 @@ export async function deleteCollection(
   client: ReturnType<typeof createSPAClient>,
   collectionId: string
 ): Promise<void> {
-  const { error } = await client
-    .from('collections')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', collectionId);
+  // Type assertion needed due to Supabase type inference limitation
+  const collectionsTable = client.from('collections') as unknown as {
+    update: (value: { deleted_at: string }) => {
+      eq: (column: string, value: string) => Promise<{ error: { message: string } | null }>;
+    };
+  };
+  const { error } = await collectionsTable.update({ deleted_at: new Date().toISOString() }).eq('id', collectionId);
 
   if (error) {
     throw new Error(`Failed to delete collection: ${error.message}`);
@@ -240,30 +260,44 @@ export async function addWordToCollection(
 ): Promise<CollectionWord> {
   // Get current max position if not provided
   if (position === undefined) {
-    const { data: existing } = await client
-      .from('collection_words')
-      .select('position')
-      .eq('collection_id', collectionId)
-      .order('position', { ascending: false })
-      .limit(1)
-      .single();
+    // Type assertion needed due to Supabase type inference limitation
+    const collectionWordsTable = client.from('collection_words') as unknown as {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => {
+          order: (column: string, options: { ascending: boolean }) => {
+            limit: (count: number) => {
+              single: () => Promise<{ data: { position: number | null } | null; error: { message: string } | null }>;
+            };
+          };
+        };
+      };
+    };
+    const { data: existing } = await collectionWordsTable.select('position').eq('collection_id', collectionId).order('position', { ascending: false }).limit(1).single();
 
     position = existing ? (existing.position || 0) + 1 : 0;
   }
 
-  const { data, error } = await client
-    .from('collection_words')
-    .insert({
-      collection_id: collectionId,
-      word_id: wordId,
-      position,
-      notes: notes || null,
-    })
-    .select()
-    .single();
+  // Type assertion needed due to Supabase type inference limitation
+  const collectionWordsTable = client.from('collection_words') as unknown as {
+    insert: (value: { collection_id: string; word_id: string; position: number; notes: string | null }) => {
+      select: () => {
+        single: () => Promise<{ data: CollectionWord | null; error: { message: string } | null }>;
+      };
+    };
+  };
+  const { data, error } = await collectionWordsTable.insert({
+    collection_id: collectionId,
+    word_id: wordId,
+    position,
+    notes: notes || null,
+  }).select().single();
 
   if (error) {
     throw new Error(`Failed to add word to collection: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error('Failed to add word to collection: no data returned');
   }
 
   return data;
@@ -297,11 +331,15 @@ export async function updateWordPosition(
   wordId: string,
   newPosition: number
 ): Promise<void> {
-  const { error } = await client
-    .from('collection_words')
-    .update({ position: newPosition })
-    .eq('collection_id', collectionId)
-    .eq('word_id', wordId);
+  // Type assertion needed due to Supabase type inference limitation
+  const collectionWordsTable = client.from('collection_words') as unknown as {
+    update: (value: { position: number }) => {
+      eq: (column: string, value: string) => {
+        eq: (column: string, value: string) => Promise<{ error: { message: string } | null }>;
+      };
+    };
+  };
+  const { error } = await collectionWordsTable.update({ position: newPosition }).eq('collection_id', collectionId).eq('word_id', wordId);
 
   if (error) {
     throw new Error(`Failed to update word position: ${error.message}`);

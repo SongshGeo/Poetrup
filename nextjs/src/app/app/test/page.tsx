@@ -52,16 +52,22 @@ export default function TestPage() {
       }
 
       // Load all words
-      const allWords = await getWords(client, { page: 1, pageSize: 1 });
-      const myWords = await getWordsByCreator(client, profileData.id, { page: 1, pageSize: 1 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allWords = await getWords(client as any, { page: 1, pageSize: 1 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const myWords = await getWordsByCreator(client as any, profileData.id, { page: 1, pageSize: 1 });
 
       // Load all collections
-      const allCollections = await getCollections(client, { page: 1, pageSize: 1 });
-      const myCollections = await getCollectionsByOwner(client, profileData.id, { page: 1, pageSize: 1 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allCollections = await getCollections(client as any, { page: 1, pageSize: 1 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const myCollections = await getCollectionsByOwner(client as any, profileData.id, { page: 1, pageSize: 1 });
 
       // Load all poetry
-      const allPoetry = await getPoetry(client, { page: 1, pageSize: 1 });
-      const myPoetry = await getPoetryByCreator(client, profileData.id, { page: 1, pageSize: 1 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allPoetry = await getPoetry(client as any, { page: 1, pageSize: 1 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const myPoetry = await getPoetryByCreator(client as any, profileData.id, { page: 1, pageSize: 1 });
 
       setStats({
         words: {

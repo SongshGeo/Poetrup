@@ -105,7 +105,8 @@ export default function PoemEditPage() {
         setProfileId(profileData.id);
         
         // Load poem
-        const dbPoem = await getPoetryById(client, poemId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const dbPoem = await getPoetryById(client as any, poemId);
         if (!dbPoem) {
           toast.error('作品不存在');
           router.push('/app');
@@ -148,7 +149,8 @@ export default function PoemEditPage() {
         setPlacedWords(placedWordsData);
         
         // Load words
-        const wordsResult = await getWords(client, { 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const wordsResult = await getWords(client as any, { 
           page: 1, 
           pageSize: 1000,
           orderBy: 'created_at',
@@ -159,7 +161,8 @@ export default function PoemEditPage() {
         setWords(transformedWords);
         
         // Load collections
-        const collectionsResult = await getCollections(client, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const collectionsResult = await getCollections(client as any, {
           ownerId: profileData.id,
           page: 1,
           pageSize: 100,
@@ -170,7 +173,8 @@ export default function PoemEditPage() {
         // Load word IDs for each collection
         const collectionsWithWords = await Promise.all(
           collectionsResult.collections.map(async (collection) => {
-            const collectionWithWords = await getCollectionWithWords(client, collection.id);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const collectionWithWords = await getCollectionWithWords(client as any, collection.id);
             const wordIds = collectionWithWords?.words.map(w => w.id) || [];
             return transformCollection(collection, wordIds, Folder);
           })
@@ -213,7 +217,8 @@ export default function PoemEditPage() {
       }));
       
       // Update poetry in database
-      await updatePoetry(client, poemId, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await updatePoetry(client as any, poemId, {
         title: poemTitle,
         description: poemDescription || null,
         content: contentBlocks as Json,

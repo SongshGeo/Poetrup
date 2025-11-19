@@ -90,7 +90,8 @@ export default function PoemCollectionPage() {
         setProfileId(profileData.id);
         
         // Load words
-        const wordsResult = await getWords(client, { 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const wordsResult = await getWords(client as any, { 
           page: 1, 
           pageSize: 1000,
           orderBy: 'created_at',
@@ -101,7 +102,8 @@ export default function PoemCollectionPage() {
         setWords(transformedWords);
         
         // Load collections (folders)
-        const collectionsResult = await getCollections(client, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const collectionsResult = await getCollections(client as any, {
           page: 1,
           pageSize: 100,
           orderBy: 'created_at',
@@ -115,7 +117,8 @@ export default function PoemCollectionPage() {
         setFolders(transformedFolders);
         
         // Load poetry
-        const poetryResult = await getPoetryByCreator(client, profileData.id, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const poetryResult = await getPoetryByCreator(client as any, profileData.id, {
           page: 1,
           pageSize: 100,
           orderBy: 'created_at',
@@ -173,7 +176,8 @@ export default function PoemCollectionPage() {
   const handleDelete = async (poemId: string) => {
     try {
       const client = createSPAClient();
-      await deletePoetry(client, poemId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await deletePoetry(client as any, poemId);
       
       // Update poems state
       const updatedPoems = poems.filter(p => p.id !== poemId);
