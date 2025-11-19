@@ -6,7 +6,7 @@ import { createSPAClient } from '@/lib/supabase/client';
 import { getWords } from '@/lib/api/words';
 import { getCollections } from '@/lib/api/collections';
 import { getPoetryByCreator, deletePoetry } from '@/lib/api/poetry';
-import { transformWord, transformCollection, transformPoetry } from '@/lib/utils/dataTransform';
+import { transformWord, transformPoetry } from '@/lib/utils/dataTransform';
 import { toast } from 'sonner';
 import { ArrowLeft, Calendar, Folder, FileText, Edit, Trash2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ export default function PoemCollectionPage() {
   const router = useRouter();
   const { user, loading: userLoading } = useGlobal();
   const [loading, setLoading] = useState(true);
-  const [profileId, setProfileId] = useState<string | null>(null);
+  const [, setProfileId] = useState<string | null>(null);
   
   const [poems, setPoems] = useState<Poem[]>([]);
   const [words, setWords] = useState<Word[]>([]);
@@ -79,7 +79,15 @@ export default function PoemCollectionPage() {
           return;
         }
         
-        setProfileId(profile.id);
+        // Type assertion to fix TypeScript inference issue
+        const profileData = profile as { id: string } | null;
+        if (!profileData) {
+          toast.error('无法加载用户信息');
+          setLoading(false);
+          return;
+        }
+        
+        setProfileId(profileData.id);
         
         // Load words
         const wordsResult = await getWords(client, { 
@@ -107,7 +115,7 @@ export default function PoemCollectionPage() {
         setFolders(transformedFolders);
         
         // Load poetry
-        const poetryResult = await getPoetryByCreator(client, profile.id, {
+        const poetryResult = await getPoetryByCreator(client, profileData.id, {
           page: 1,
           pageSize: 100,
           orderBy: 'created_at',
@@ -119,11 +127,14 @@ export default function PoemCollectionPage() {
           let wordIds: string[] = [];
           if (dbPoetry.content) {
             try {
-              const content = dbPoetry.content as any;
+              const content = dbPoetry.content as unknown;
               if (Array.isArray(content)) {
                 wordIds = content
-                  .filter((block: any) => block.type === 'word' && block.word_id)
-                  .map((block: any) => block.word_id);
+                  .filter((block: unknown): block is { type: string; word_id?: string } => 
+                    typeof block === 'object' && block !== null && 'type' in block && 'word_id' in block
+                  )
+                  .filter((block) => block.type === 'word' && block.word_id)
+                  .map((block) => block.word_id as string);
               }
             } catch (e) {
               console.warn('Failed to parse poetry content:', e);
@@ -137,10 +148,11 @@ export default function PoemCollectionPage() {
           setSelectedPoem(transformedPoems[0]);
         }
         
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error loading data:', error);
+        const errorMessage = error instanceof Error ? error.message : '请稍后重试';
         toast.error('加载数据失败', {
-          description: error.message || '请稍后重试'
+          description: errorMessage
         });
       } finally {
         setLoading(false);
@@ -173,10 +185,11 @@ export default function PoemCollectionPage() {
       }
       
       toast.success('作品已删除');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting poetry:', error);
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
       toast.error('删除失败', {
-        description: error.message || '请稍后重试'
+        description: errorMessage
       });
     }
   };

@@ -39,7 +39,7 @@ interface Poem {
 interface PoemCollectionViewProps {
   poems: Poem[];
   words: Word[];
-  folders: { id: string; name: string; icon: any; wordIds: string[] }[];
+  folders: { id: string; name: string; icon: React.ComponentType<{ className?: string }>; wordIds: string[] }[];
   onBack: () => void;
   onEdit: (poem: Poem) => void;
   onDelete: (poemId: string) => void;

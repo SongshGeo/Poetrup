@@ -223,7 +223,25 @@ Poetrup/
 
 详细部署指南请查看：[部署指南](./docs/DEPLOYMENT_GUIDE.md)
 
-**快速步骤：**
+#### 方式 1: 使用 Vercel CLI（完全命令行，推荐）
+
+```bash
+# 使用部署脚本
+./scripts/deploy-vercel.sh
+
+# 或手动部署
+cd nextjs
+vercel login
+vercel link
+vercel env add NEXT_PUBLIC_SUPABASE_URL production
+vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production
+vercel env add PRIVATE_SUPABASE_SERVICE_KEY production
+vercel --prod
+```
+
+详细 CLI 指南：[Vercel CLI 部署指南](./docs/VERCEL_CLI_DEPLOY.md)
+
+#### 方式 2: 通过 Vercel 网页
 
 1. 将代码推送到 GitHub
 2. 在 [Vercel](https://vercel.com) 创建项目，选择你的仓库

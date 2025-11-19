@@ -3,6 +3,7 @@
  * Converts between database types and frontend types
  */
 
+import type { LucideIcon } from 'lucide-react';
 import { Database } from '@/lib/types';
 
 type WordRow = Database['public']['Tables']['words']['Row'];
@@ -23,7 +24,7 @@ export interface Word {
 export interface Folder {
   id: string;
   name: string; // title from database
-  icon: any; // React component
+  icon: LucideIcon; // Lucide icon component (required)
   wordIds: string[];
 }
 
@@ -51,16 +52,17 @@ export function transformWord(
   rotation?: number
 ): Word {
   // Get color from metadata or use default
+  const metadata = dbWord.metadata as { color?: string; rotation?: number } | null;
   const wordColor =
     color ||
-    (dbWord.metadata as any)?.color ||
+    metadata?.color ||
     getDefaultColorForWord(dbWord.text);
 
   // Get rotation from metadata or generate random
   const wordRotation =
     rotation !== undefined
       ? rotation
-      : (dbWord.metadata as any)?.rotation ||
+      : metadata?.rotation ||
         generateRotationForWord(dbWord.id);
 
   return {
@@ -79,8 +81,8 @@ export function transformWord(
 export function transformCollection(
   dbCollection: CollectionRow,
   wordIds: string[] = [],
-  icon?: any
-): Omit<Folder, 'icon'> & { icon?: any } {
+  icon: LucideIcon
+): Folder {
   return {
     id: dbCollection.id,
     name: dbCollection.title,
@@ -100,16 +102,20 @@ export function transformPoetry(
   let placedWords: Poem['placedWords'] = undefined;
   if (dbPoetry.content) {
     try {
-      const content = dbPoetry.content as any;
+      const content = dbPoetry.content as unknown;
       if (Array.isArray(content)) {
-        placedWords = content
-          .filter((block: any) => block.type === 'word' && block.word_id)
-          .map((block: any) => ({
-            wordId: block.word_id,
-            x: block.x || 0,
-            y: block.y || 0,
-            rotation: block.rotation || 0,
-          }));
+        const validBlocks = content
+          .filter((block: unknown): block is { type: string; word_id?: string; x?: number; y?: number; rotation?: number } => 
+            typeof block === 'object' && block !== null && 'type' in block
+          )
+          .filter((block) => block.type === 'word' && block.word_id);
+        
+        placedWords = validBlocks.map((block) => ({
+          wordId: block.word_id as string,
+          x: block.x || 0,
+          y: block.y || 0,
+          rotation: block.rotation || 0,
+        }));
       }
     } catch (e) {
       console.warn('Failed to parse poetry content:', e);
@@ -117,7 +123,8 @@ export function transformPoetry(
   }
 
   // Extract folder/collection ID from metadata or poetry_collections
-  const folderId = (dbPoetry.metadata as any)?.folderId || undefined;
+  const metadata = dbPoetry.metadata as { folderId?: string } | null;
+  const folderId = metadata?.folderId || undefined;
 
   return {
     id: dbPoetry.id,

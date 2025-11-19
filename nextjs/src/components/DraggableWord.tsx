@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { Check } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 interface Word {
   id: string;
@@ -29,7 +28,7 @@ export function DraggableWord({
   word, 
   index, 
   selectedWord,
-  setSelectedWord,
+  setSelectedWord: _setSelectedWord, // eslint-disable-line @typescript-eslint/no-unused-vars
   selectedWords,
   handleWordClick,
   moveWord 

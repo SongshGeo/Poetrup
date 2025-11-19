@@ -69,8 +69,8 @@ export function PoemEditView({ poem, words, folders, onBack, onUpdate }: PoemEdi
   );
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
-  // 获取已使用的词语
-  const usedWords = words.filter(w => poem.wordIds.includes(w.id));
+  // 获取已使用的词语（未使用，已注释）
+  // const usedWords = words.filter(w => poem.wordIds.includes(w.id));
   
   // 获取当前作品关联的收藏册
   const currentFolder = folders.find(f => f.id === poem.folderId);
@@ -292,9 +292,6 @@ export function PoemEditView({ poem, words, folders, onBack, onUpdate }: PoemEdi
                         e.dataTransfer.setData('offsetX', offsetX.toString());
                         e.dataTransfer.setData('offsetY', offsetY.toString());
                         setDraggingIndex(index);
-                      }}
-                      onDragEnd={() => {
-                        setDraggingIndex(null);
                       }}
                       onDoubleClick={() => {
                         // 双击旋转词语

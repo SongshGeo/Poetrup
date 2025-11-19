@@ -8,7 +8,7 @@ interface Position {
 interface SelectionBoxProps {
   onSelectionChange: (selectedIds: string[]) => void;
   words: Array<{ id: string; element?: HTMLElement }>;
-  containerRef: React.RefObject<HTMLElement>;
+  containerRef: React.RefObject<HTMLElement | null>;
 }
 
 export function SelectionBox({ onSelectionChange, words, containerRef }: SelectionBoxProps) {

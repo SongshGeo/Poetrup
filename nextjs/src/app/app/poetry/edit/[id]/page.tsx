@@ -5,10 +5,11 @@ import { useGlobal } from '@/lib/context/GlobalContext';
 import { createSPAClient } from '@/lib/supabase/client';
 import { getWords } from '@/lib/api/words';
 import { getCollections, getCollectionWithWords } from '@/lib/api/collections';
-import { getPoetryById, updatePoetry, createPoetryWithContent } from '@/lib/api/poetry';
+import { getPoetryById, updatePoetry } from '@/lib/api/poetry';
 import { transformWord, transformCollection, transformPoetry } from '@/lib/utils/dataTransform';
+import type { Json } from '@/lib/types';
 import { toast } from 'sonner';
-import { ArrowLeft, BookOpen, Calendar, FileText, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, FileText, X, Folder } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,7 +60,7 @@ export default function PoemEditPage() {
   const params = useParams();
   const poemId = params.id as string;
   const { user, loading: userLoading } = useGlobal();
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [profileId, setProfileId] = useState<string | null>(null);
   
   const [poem, setPoem] = useState<Poem | null>(null);
@@ -93,7 +94,15 @@ export default function PoemEditPage() {
           return;
         }
         
-        setProfileId(profile.id);
+        // Type assertion to fix TypeScript inference issue
+        const profileData = profile as { id: string } | null;
+        if (!profileData) {
+          toast.error('无法加载用户信息');
+          setLoading(false);
+          return;
+        }
+        
+        setProfileId(profileData.id);
         
         // Load poem
         const dbPoem = await getPoetryById(client, poemId);
@@ -108,20 +117,22 @@ export default function PoemEditPage() {
         let placedWordsData: PlacedWord[] = [];
         if (dbPoem.content) {
           try {
-            const content = dbPoem.content as any;
+            const content = dbPoem.content as unknown;
             if (Array.isArray(content)) {
-              wordIds = content
-                .filter((block: any) => block.type === 'word' && block.word_id)
-                .map((block: any) => block.word_id);
+              const validBlocks = content
+                .filter((block: unknown): block is { type: string; word_id?: string; x?: number; y?: number; rotation?: number } => 
+                  typeof block === 'object' && block !== null && 'type' in block
+                )
+                .filter((block) => block.type === 'word' && block.word_id);
               
-              placedWordsData = content
-                .filter((block: any) => block.type === 'word' && block.word_id)
-                .map((block: any) => ({
-                  wordId: block.word_id,
-                  x: block.x || 0,
-                  y: block.y || 0,
-                  rotation: block.rotation || 0,
-                }));
+              wordIds = validBlocks.map((block) => block.word_id as string);
+              
+              placedWordsData = validBlocks.map((block) => ({
+                wordId: block.word_id as string,
+                x: block.x || 0,
+                y: block.y || 0,
+                rotation: block.rotation || 0,
+              }));
             }
           } catch (e) {
             console.warn('Failed to parse poetry content:', e);
@@ -149,7 +160,7 @@ export default function PoemEditPage() {
         
         // Load collections
         const collectionsResult = await getCollections(client, {
-          ownerId: profile.id,
+          ownerId: profileData.id,
           page: 1,
           pageSize: 100,
           orderBy: 'created_at',
@@ -161,16 +172,17 @@ export default function PoemEditPage() {
           collectionsResult.collections.map(async (collection) => {
             const collectionWithWords = await getCollectionWithWords(client, collection.id);
             const wordIds = collectionWithWords?.words.map(w => w.id) || [];
-            return transformCollection(collection, wordIds);
+            return transformCollection(collection, wordIds, Folder);
           })
         );
         
         setFolders(collectionsWithWords);
         
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error loading data:', error);
+        const errorMessage = error instanceof Error ? error.message : '请稍后重试';
         toast.error('加载数据失败', {
-          description: error.message || '请稍后重试'
+          description: errorMessage
         });
       } finally {
         setLoading(false);
@@ -204,19 +216,20 @@ export default function PoemEditPage() {
       await updatePoetry(client, poemId, {
         title: poemTitle,
         description: poemDescription || null,
-        content: contentBlocks as any,
+        content: contentBlocks as Json,
         text_content: contentBlocks.map(b => b.text).join(' '),
         metadata: {
           folderId: updatedPoem.folderId,
-        } as any,
+        } as { folderId?: string },
       });
       
       toast.success('作品已保存');
       router.push('/app');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating poetry:', error);
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
       toast.error('保存失败', {
-        description: error.message || '请稍后重试'
+        description: errorMessage
       });
     }
   };
@@ -227,8 +240,8 @@ export default function PoemEditPage() {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  // 获取已使用的词语
-  const usedWords = words.filter(w => poem.wordIds.includes(w.id));
+  // 获取已使用的词语（未使用，已注释）
+  // const usedWords = words.filter(w => poem.wordIds.includes(w.id));
   
   // 获取当前作品关联的收藏册
   const currentFolder = folders.find(f => f.id === poem.folderId);
@@ -402,6 +415,9 @@ export default function PoemEditPage() {
                 setDraggingIndex(null);
               }}
               onDragOver={(e) => e.preventDefault()}
+              onDragEnd={() => {
+                setDraggingIndex(null);
+              }}
             >
               {/* 空状态提示 */}
               {placedWords.length === 0 && (
@@ -450,9 +466,6 @@ export default function PoemEditPage() {
                         e.dataTransfer.setData('offsetX', offsetX.toString());
                         e.dataTransfer.setData('offsetY', offsetY.toString());
                         setDraggingIndex(index);
-                      }}
-                      onDragEnd={() => {
-                        setDraggingIndex(null);
                       }}
                       onDoubleClick={() => {
                         // 双击旋转词语

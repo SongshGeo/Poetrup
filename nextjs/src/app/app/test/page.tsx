@@ -43,17 +43,25 @@ export default function TestPage() {
         return;
       }
 
+      // Type assertion to fix TypeScript inference issue
+      const profileData = profile as { id: string } | null;
+      if (!profileData) {
+        setError('Profile not found. Please create a profile first.');
+        setLoading(false);
+        return;
+      }
+
       // Load all words
       const allWords = await getWords(client, { page: 1, pageSize: 1 });
-      const myWords = await getWordsByCreator(client, profile.id, { page: 1, pageSize: 1 });
+      const myWords = await getWordsByCreator(client, profileData.id, { page: 1, pageSize: 1 });
 
       // Load all collections
       const allCollections = await getCollections(client, { page: 1, pageSize: 1 });
-      const myCollections = await getCollectionsByOwner(client, profile.id, { page: 1, pageSize: 1 });
+      const myCollections = await getCollectionsByOwner(client, profileData.id, { page: 1, pageSize: 1 });
 
       // Load all poetry
       const allPoetry = await getPoetry(client, { page: 1, pageSize: 1 });
-      const myPoetry = await getPoetryByCreator(client, profile.id, { page: 1, pageSize: 1 });
+      const myPoetry = await getPoetryByCreator(client, profileData.id, { page: 1, pageSize: 1 });
 
       setStats({
         words: {
@@ -69,8 +77,9 @@ export default function TestPage() {
           myPoetry: myPoetry.total,
         },
       });
-    } catch (err: any) {
-      setError(err.message || 'Failed to load data');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
+      setError(errorMessage);
       console.error('Error loading data:', err);
     } finally {
       setLoading(false);

@@ -35,14 +35,14 @@ export interface PoetryContentBlock {
   x: number;
   y: number;
   fontSize?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
  * Get poetry with pagination and filtering
  */
 export async function getPoetry(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   options: PoetrySearchOptions = {}
 ): Promise<PoetrySearchResult> {
   const {
@@ -111,7 +111,7 @@ export async function getPoetry(
  * Get a single poetry by ID
  */
 export async function getPoetryById(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetryId: string
 ): Promise<Poetry | null> {
   const { data, error } = await client
@@ -135,7 +135,7 @@ export async function getPoetryById(
  * Create a new poetry
  */
 export async function createPoetry(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetry: PoetryInsert
 ): Promise<Poetry> {
   const { data, error } = await client
@@ -155,7 +155,7 @@ export async function createPoetry(
  * Update a poetry
  */
 export async function updatePoetry(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetryId: string,
   updates: PoetryUpdate
 ): Promise<Poetry> {
@@ -177,7 +177,7 @@ export async function updatePoetry(
  * Delete a poetry (soft delete)
  */
 export async function deletePoetry(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetryId: string
 ): Promise<void> {
   const { error } = await client
@@ -194,7 +194,7 @@ export async function deletePoetry(
  * Link poetry to collections
  */
 export async function linkPoetryToCollections(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetryId: string,
   collectionIds: string[]
 ): Promise<void> {
@@ -214,7 +214,7 @@ export async function linkPoetryToCollections(
  * Unlink poetry from a collection
  */
 export async function unlinkPoetryFromCollection(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetryId: string,
   collectionId: string
 ): Promise<void> {
@@ -233,7 +233,7 @@ export async function unlinkPoetryFromCollection(
  * Get poetry by creator
  */
 export async function getPoetryByCreator(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   creatorId: string,
   options: Omit<PoetrySearchOptions, 'creatorId'> = {}
 ): Promise<PoetrySearchResult> {
@@ -244,7 +244,7 @@ export async function getPoetryByCreator(
  * Get public poetry
  */
 export async function getPublicPoetry(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   options: Omit<PoetrySearchOptions, 'visibility'> = {}
 ): Promise<PoetrySearchResult> {
   return getPoetry(client, { ...options, visibility: 'public' });
@@ -254,7 +254,7 @@ export async function getPublicPoetry(
  * Increment poetry view count
  */
 export async function incrementPoetryViews(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetryId: string
 ): Promise<void> {
   const poetry = await getPoetryById(client, poetryId);
@@ -269,7 +269,7 @@ export async function incrementPoetryViews(
  * Toggle favorite status for poetry
  */
 export async function togglePoetryFavorite(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetryId: string,
   profileId: string
 ): Promise<boolean> {
@@ -329,7 +329,7 @@ export async function togglePoetryFavorite(
  * Check if poetry is favorited by user
  */
 export async function isPoetryFavorited(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetryId: string,
   profileId: string
 ): Promise<boolean> {
@@ -357,7 +357,7 @@ export function extractTextFromContent(content: PoetryContentBlock[]): string {
  * Create poetry with content blocks
  */
 export async function createPoetryWithContent(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient<Database, "public", Database["public"]>,
   poetryData: Omit<PoetryInsert, 'text_content' | 'content'> & {
     content: PoetryContentBlock[];
   }
@@ -366,7 +366,7 @@ export async function createPoetryWithContent(
 
   return createPoetry(client, {
     ...poetryData,
-    content: poetryData.content as any,
+    content: poetryData.content as unknown,
     text_content: textContent,
   });
 }

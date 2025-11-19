@@ -1,4 +1,4 @@
-import { Tag, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface Word {

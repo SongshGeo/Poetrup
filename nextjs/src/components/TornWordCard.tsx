@@ -12,7 +12,7 @@ interface TornWordCardProps {
 
 export function TornWordCard({
   text,
-  color = "#8b7355",
+  color: _color = "#8b7355", // eslint-disable-line @typescript-eslint/no-unused-vars
   rotation = 0,
   className = "",
   style = {},

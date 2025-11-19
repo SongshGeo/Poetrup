@@ -2,12 +2,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useGlobal } from "@/lib/context/GlobalContext";
-import { createSPAClient } from "@/lib/supabase/client";
+import { createSPAClient, createSPASassClient } from "@/lib/supabase/client";
 import { getWords, createWord, updateWord } from "@/lib/api/words";
 import { getCollections, getCollectionWithWords, createCollection, addWordToCollection } from "@/lib/api/collections";
-import { getPoetry, getPoetryByCreator, createPoetryWithContent } from "@/lib/api/poetry";
-import { transformWord, transformCollection, transformPoetry, type Word as TransformedWord, type Folder as TransformedFolder, type Poem as TransformedPoem } from "@/lib/utils/dataTransform";
-import { Folder, Tag, Star, Clock, Grid3x3, List, MoreHorizontal, Plus, Circle, Calendar, BookOpen, ChevronDown, KeyRound, LogOut, User, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Check, Filter, ArrowUpDown, X, Search, BookMarked, Trash2, Edit, FileText } from "lucide-react";
+import { getPoetryByCreator, createPoetryWithContent } from "@/lib/api/poetry";
+import { transformWord, transformCollection, transformPoetry, type Folder as FolderType } from "@/lib/utils/dataTransform";
+import type { Json, Database } from '@/lib/types';
+import { Folder, Tag, Star, Clock, Grid3x3, List, MoreHorizontal, Plus, Calendar, BookOpen, ChevronDown, KeyRound, LogOut, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Filter, ArrowUpDown, X, BookMarked } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -82,7 +83,7 @@ export default function PoetryPage() {
   const wordsContainerRef = useRef<HTMLDivElement>(null);
   
   // Data loading states
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [profileId, setProfileId] = useState<string | null>(null);
 
   // 视图模式
@@ -110,7 +111,7 @@ export default function PoetryPage() {
   
   // 视图模式：home（主页）、poem-edit（作品编辑）、poem-collection（作品集）
   // 注意：在 Next.js 中，路由由文件系统处理，这里保持为 'home' 模式
-  const [editingPoem, setEditingPoem] = useState<Poem | null>(null);
+  // const [editingPoem, setEditingPoem] = useState<Poem | null>(null); // 未使用，已移除
 
   const [tags, setTags] = useState([
     { id: "movie", name: "电影", icon: Tag },
@@ -118,7 +119,7 @@ export default function PoetryPage() {
     { id: "nature", name: "自然", icon: Tag },
     { id: "life", name: "生活", icon: Tag },
   ]);
-  const [folders, setFolders] = useState([
+  const [folders, setFolders] = useState<FolderType[]>([
     { id: "favorites", name: "收藏夹", icon: Star, wordIds: [] as string[] },
     { id: "recent", name: "最近使用", icon: Clock, wordIds: [] as string[] },
     { id: "all", name: "所有内容", icon: Folder, wordIds: [] as string[] },
@@ -159,13 +160,21 @@ export default function PoetryPage() {
           return;
         }
         
-        setProfileId(profile.id);
+        // Type assertion to fix TypeScript inference issue
+        const profileData = profile as { id: string; metadata: unknown } | null;
+        if (!profileData) {
+          toast.error('无法加载用户信息');
+          setLoading(false);
+          return;
+        }
+        
+        setProfileId(profileData.id);
         
         // Load custom tags from profile metadata
-        if (profile.metadata && typeof profile.metadata === 'object' && 'tags' in profile.metadata) {
-          const savedTags = (profile.metadata as any).tags;
+        if (profileData.metadata && typeof profileData.metadata === 'object' && 'tags' in profileData.metadata) {
+          const savedTags = (profileData.metadata as { tags?: Array<{ id?: string; name: string }> }).tags;
           if (Array.isArray(savedTags) && savedTags.length > 0) {
-            const loadedTags = savedTags.map((tag: any) => ({
+            const loadedTags = savedTags.map((tag) => ({
               id: tag.id || tag.name.toLowerCase().replace(/\s+/g, '-'),
               name: tag.name,
               icon: Tag,
@@ -178,7 +187,7 @@ export default function PoetryPage() {
               { id: "life", name: "生活", icon: Tag },
             ];
             const allTags = [...defaultTags];
-            loadedTags.forEach((tag: any) => {
+            loadedTags.forEach((tag) => {
               if (!allTags.find(t => t.id === tag.id)) {
                 allTags.push(tag);
               }
@@ -206,7 +215,7 @@ export default function PoetryPage() {
         
         // Load collections
         const collectionsResult = await getCollections(client, {
-          ownerId: profile.id,
+          ownerId: profileData.id,
           page: 1,
           pageSize: 100,
           orderBy: 'created_at',
@@ -231,7 +240,7 @@ export default function PoetryPage() {
         setFolders(defaultFolders);
         
         // Load poetry
-        const poetryResult = await getPoetryByCreator(client, profile.id, {
+        const poetryResult = await getPoetryByCreator(client, profileData.id, {
           page: 1,
           pageSize: 100,
           orderBy: 'created_at',
@@ -245,11 +254,14 @@ export default function PoetryPage() {
             let wordIds: string[] = [];
             if (dbPoetry.content) {
               try {
-                const content = dbPoetry.content as any;
+                const content = dbPoetry.content as unknown;
                 if (Array.isArray(content)) {
                   wordIds = content
-                    .filter((block: any) => block.type === 'word' && block.word_id)
-                    .map((block: any) => block.word_id);
+                    .filter((block: unknown): block is { type: string; word_id?: string } => 
+                      typeof block === 'object' && block !== null && 'type' in block && 'word_id' in block
+                    )
+                    .filter((block) => block.type === 'word' && block.word_id)
+                    .map((block) => block.word_id as string);
                 }
               } catch (e) {
                 console.warn('Failed to parse poetry content:', e);
@@ -262,10 +274,11 @@ export default function PoetryPage() {
         
         setPoems(transformedPoems);
         
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error loading data:', error);
+        const errorMessage = error instanceof Error ? error.message : '请稍后重试';
         toast.error('加载数据失败', {
-          description: error.message || '请稍后重试'
+          description: errorMessage
         });
       } finally {
         setLoading(false);
@@ -323,7 +336,7 @@ export default function PoetryPage() {
           default:
             return true;
         }
-      } catch (error) {
+      } catch {
         // 正则表达式错误时，返回 true
         return true;
       }
@@ -369,30 +382,11 @@ export default function PoetryPage() {
   });
 
   // 获��排序方式的显示文本
-  const getSortText = () => {
-    switch (sortBy) {
-      case 'time':
-        return '排序：按时间';
-      case 'category':
-        return '排序：按标签';
-      case 'name':
-        return '排序：按名称';
-      default:
-        return '排序';
-    }
-  };
+  // 获取排序方式的显示文本（未使用，已注释）
+  // const getSortText = () => { ... }
 
-  // 获取当前标题
-  const getCurrentTitle = () => {
-    if (selectedFolder) {
-      const folder = folders.find(f => f.id === selectedFolder);
-      return folder?.name || "词语收藏册";
-    }
-    if (selectedTag) {
-      return `${categoryMap[selectedTag]} · 词语收藏册`;
-    }
-    return "词语收藏册";
-  };
+  // 获取当前标题（未使用，已注释）
+  // const getCurrentTitle = () => { ... }
 
   // 获取当前选中的集合信息
   const getCurrentCollection = () => {
@@ -447,12 +441,18 @@ export default function PoetryPage() {
         throw new Error('无法加载用户信息');
       }
       
+      // Type assertion to fix TypeScript inference issue
+      const profileDataForUpdate = profile as { metadata: unknown } | null;
+      if (!profileDataForUpdate) {
+        throw new Error('无法加载用户信息');
+      }
+      
       // Update metadata with new tag
-      const currentMetadata = (profile.metadata as any) || {};
+      const currentMetadata = (profileDataForUpdate.metadata as { tags?: Array<{ id: string; name: string }> }) || {};
       const currentTags = Array.isArray(currentMetadata.tags) ? currentMetadata.tags : [];
       
       // Add new tag if it doesn't exist
-      if (!currentTags.find((t: any) => t.id === newTag.id || t.name === newTag.name)) {
+      if (!currentTags.find((t) => t.id === newTag.id || t.name === newTag.name)) {
         currentTags.push({
           id: newTag.id,
           name: newTag.name,
@@ -460,15 +460,22 @@ export default function PoetryPage() {
       }
       
       // Update profile metadata
-      const { error: updateError } = await client
-        .from('profiles')
-        .update({
-          metadata: {
-            ...currentMetadata,
-            tags: currentTags,
-          },
-        })
-        .eq('id', profileId);
+      // Note: Type assertion needed because Supabase's update type inference can fail with complex JSONB
+      const updateData: Database['public']['Tables']['profiles']['Update'] = {
+        metadata: {
+          ...currentMetadata,
+          tags: currentTags,
+        } as Json,
+      };
+      // Type assertion needed due to Supabase SSR client type inference limitation with JSONB fields
+      // The client.from('profiles').update() chain has a type inference issue that causes it to be inferred as 'never'
+      // We use a double type assertion to work around this limitation
+      const profilesTable = client.from('profiles') as unknown as {
+        update: (value: Database['public']['Tables']['profiles']['Update']) => {
+          eq: (column: string, value: string) => Promise<{ error: { message: string } | null; data: unknown }>;
+        };
+      };
+      const { error: updateError } = await profilesTable.update(updateData).eq('id', profileId);
       
       if (updateError) {
         throw updateError;
@@ -484,10 +491,11 @@ export default function PoetryPage() {
       setIsAddTagDialogOpen(false);
       
       toast.success(`标签「${newTag.name}」已创建`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating tag:', error);
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
       toast.error('创建标签失败', {
-        description: error.message || '请稍后重试'
+        description: errorMessage
       });
     }
   };
@@ -516,10 +524,11 @@ export default function PoetryPage() {
       toast.success(`「${newFolderName.trim()}」已创建`);
       setNewFolderName("");
       setIsAddFolderDialogOpen(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating collection:', error);
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
       toast.error('创建收藏册失败', {
-        description: error.message || '请稍后重试'
+        description: errorMessage
       });
     }
   };
@@ -540,7 +549,7 @@ export default function PoetryPage() {
     if (!newWordInput.trim() || !profileId) return;
 
     // 去除前后空格
-    let inputText = newWordInput.trim();
+    const inputText = newWordInput.trim();
     
     // 解析标签（#标签名）
     const tagRegex = /#([^\s#]+)/g;
@@ -627,7 +636,7 @@ export default function PoetryPage() {
         metadata: {
           color: randomColor,
           rotation: randomRotation,
-        } as any,
+        } as { color: string; rotation: number },
       });
       
       // Transform to frontend format
@@ -661,10 +670,11 @@ export default function PoetryPage() {
       
       // Clear input
       setNewWordInput('');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating word:', error);
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
       toast.error('添加词语失败', {
-        description: error.message || '请稍后重试'
+        description: errorMessage
       });
     }
   }, [newWordInput, selectedFolder, words, tags, profileId]);
@@ -732,10 +742,11 @@ export default function PoetryPage() {
       
       // 显示成功提示
       toast.success(`已将 ${wordIds.length} 个词语添加到收藏册`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding words to collection:', error);
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
       toast.error('添加词语到收藏册失败', {
-        description: error.message || '请稍后重试'
+        description: errorMessage
       });
     }
   }, []);
@@ -797,10 +808,11 @@ export default function PoetryPage() {
       
       // 显示成功提示
       toast.success(`已${wordIds.some(id => words.find(w => w.id === id)?.categories.includes(categoryName)) ? '移除' : '添加'}标签`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating word tags:', error);
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
       toast.error('更新标签失败', {
-        description: error.message || '请稍后重试'
+        description: errorMessage
       });
     }
   }, [words]);
@@ -1373,7 +1385,7 @@ export default function PoetryPage() {
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator style={{ backgroundColor: 'var(--paper-border)' }} />
                                 {Object.entries(categoryMap)
-                                  .filter(([_, categoryName]) => !selectedWord.categories.includes(categoryName))
+                                  .filter(([, categoryName]) => !selectedWord.categories.includes(categoryName))
                                   .map(([tagId, categoryName]) => (
                                     <DropdownMenuItem
                                       key={tagId}
@@ -1390,7 +1402,7 @@ export default function PoetryPage() {
                                       <span style={{ color: 'var(--paper-text)' }}>{categoryName}</span>
                                     </DropdownMenuItem>
                                   ))}
-                                {Object.entries(categoryMap).filter(([_, categoryName]) => !selectedWord.categories.includes(categoryName)).length === 0 && (
+                                {Object.entries(categoryMap).filter(([, categoryName]) => !selectedWord.categories.includes(categoryName)).length === 0 && (
                                   <div className="px-2 py-1.5 text-xs opacity-60" style={{ color: 'var(--paper-text-secondary)' }}>
                                     已添加所有标签
                                   </div>
@@ -1853,7 +1865,7 @@ export default function PoetryPage() {
               <div className="text-center py-8 opacity-50" style={{ color: 'var(--paper-text-secondary)' }}>
                 <Filter className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">暂无筛选规则</p>
-                <p className="text-xs mt-1">点击"添加规则"开始筛选</p>
+                <p className="text-xs mt-1">点击&ldquo;添加规则&rdquo;开始筛选</p>
               </div>
             )}
 
@@ -2157,7 +2169,6 @@ export default function PoetryPage() {
                   style={{
                     borderColor: selectedFolderForPoem === folder.id ? 'var(--ink-accent)' : 'var(--paper-border)',
                     backgroundColor: selectedFolderForPoem === folder.id ? 'var(--paper-bg-light)' : 'transparent',
-                    ringColor: 'var(--ink-accent)',
                   }}
                   onClick={() => setSelectedFolderForPoem(folder.id)}
                 >
@@ -2223,7 +2234,7 @@ export default function PoetryPage() {
                       content: [], // Empty content for new poem
                       metadata: {
                         folderId: selectedFolderForPoem,
-                      } as any,
+                      } as Json,
                     });
                     
                     // Transform to frontend format
@@ -2237,10 +2248,11 @@ export default function PoetryPage() {
                     
                     // Navigate to edit page
                     router.push(`/app/poetry/edit/${dbPoem.id}`);
-                  } catch (error: any) {
+                  } catch (error) {
                     console.error('Error creating poem:', error);
+                    const errorMessage = error instanceof Error ? error.message : '请稍后重试';
                     toast.error('创建作品失败', {
-                      description: error.message || '请稍后重试'
+                      description: errorMessage
                     });
                   }
                 }}

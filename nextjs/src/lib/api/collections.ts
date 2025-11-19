@@ -3,14 +3,15 @@
  * Provides type-safe functions for collection management
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '@/lib/types';
+import type { Database } from '@/lib/types';
+import type { createSPAClient } from '@/lib/supabase/client';
 
 type Collection = Database['public']['Tables']['collections']['Row'];
 type CollectionInsert = Database['public']['Tables']['collections']['Insert'];
 type CollectionUpdate = Database['public']['Tables']['collections']['Update'];
 type CollectionWord = Database['public']['Tables']['collection_words']['Row'];
-type CollectionWordInsert = Database['public']['Tables']['collection_words']['Insert'];
+type Word = Database['public']['Tables']['words']['Row'];
+// type CollectionWordInsert = Database['public']['Tables']['collection_words']['Insert']; // 未使用，已注释
 
 export interface CollectionSearchOptions {
   ownerId?: string;
@@ -45,7 +46,7 @@ export interface CollectionWithWords extends Collection {
  * Get collections with pagination and filtering
  */
 export async function getCollections(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   options: CollectionSearchOptions = {}
 ): Promise<CollectionSearchResult> {
   const {
@@ -96,7 +97,7 @@ export async function getCollections(
  * Get a single collection by ID
  */
 export async function getCollectionById(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   collectionId: string
 ): Promise<Collection | null> {
   const { data, error } = await client
@@ -120,7 +121,7 @@ export async function getCollectionById(
  * Get collection with words
  */
 export async function getCollectionWithWords(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   collectionId: string
 ): Promise<CollectionWithWords | null> {
   const collection = await getCollectionById(client, collectionId);
@@ -148,9 +149,16 @@ export async function getCollectionWithWords(
     throw new Error(`Failed to fetch collection words: ${error.message}`);
   }
 
+  type CollectionWordWithRelation = {
+    word_id: string;
+    position: number | null;
+    notes: string | null;
+    words: Word;
+  };
+
   return {
     ...collection,
-    words: (words || []).map((cw: any) => ({
+    words: (words || []).map((cw: CollectionWordWithRelation) => ({
       id: cw.words.id,
       text: cw.words.text,
       normalized: cw.words.normalized,
@@ -165,14 +173,14 @@ export async function getCollectionWithWords(
  * Create a new collection
  */
 export async function createCollection(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   collection: CollectionInsert
 ): Promise<Collection> {
-  const { data, error } = await client
+  const { data, error } = await (client
     .from('collections')
-    .insert(collection)
+    .insert(collection as CollectionInsert)
     .select()
-    .single();
+    .single() as Promise<{ data: Collection | null; error: { message: string } | null }>);
 
   if (error) {
     throw new Error(`Failed to create collection: ${error.message}`);
@@ -185,7 +193,7 @@ export async function createCollection(
  * Update a collection
  */
 export async function updateCollection(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   collectionId: string,
   updates: CollectionUpdate
 ): Promise<Collection> {
@@ -207,7 +215,7 @@ export async function updateCollection(
  * Delete a collection (soft delete)
  */
 export async function deleteCollection(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   collectionId: string
 ): Promise<void> {
   const { error } = await client
@@ -224,7 +232,7 @@ export async function deleteCollection(
  * Add a word to a collection
  */
 export async function addWordToCollection(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   collectionId: string,
   wordId: string,
   position?: number,
@@ -265,7 +273,7 @@ export async function addWordToCollection(
  * Remove a word from a collection
  */
 export async function removeWordFromCollection(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   collectionId: string,
   wordId: string
 ): Promise<void> {
@@ -284,7 +292,7 @@ export async function removeWordFromCollection(
  * Update word position in collection
  */
 export async function updateWordPosition(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   collectionId: string,
   wordId: string,
   newPosition: number
@@ -304,7 +312,7 @@ export async function updateWordPosition(
  * Get collections by owner
  */
 export async function getCollectionsByOwner(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   ownerId: string,
   options: Omit<CollectionSearchOptions, 'ownerId'> = {}
 ): Promise<CollectionSearchResult> {
@@ -315,7 +323,7 @@ export async function getCollectionsByOwner(
  * Get public collections
  */
 export async function getPublicCollections(
-  client: SupabaseClient<Database>,
+  client: ReturnType<typeof createSPAClient>,
   options: Omit<CollectionSearchOptions, 'visibility'> = {}
 ): Promise<CollectionSearchResult> {
   return getCollections(client, { ...options, visibility: 'public' });
