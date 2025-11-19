@@ -223,6 +223,29 @@ Poetrup/
 
 详细部署指南请查看：[部署指南](./docs/DEPLOYMENT_GUIDE.md)
 
+### 🔒 安全修复
+
+如果 Supabase 报告安全警告，请按以下步骤操作：
+
+```bash
+# 1. 测试当前状态
+./scripts/test-security-fixes.sh
+
+# 2. 应用安全修复迁移（本地）
+./scripts/apply-security-fixes.sh
+
+# 3. 验证修复
+./scripts/test-security-fixes.sh
+
+# 4. 测试应用功能（启动开发服务器测试）
+cd nextjs && yarn dev
+
+# 5. 同步到云端
+./scripts/sync-to-cloud.sh
+```
+
+详细说明请查看：[安全修复指南](./docs/SECURITY_FIXES.md)
+
 #### 方式 1: 使用 Vercel CLI（完全命令行，推荐）
 
 ```bash
