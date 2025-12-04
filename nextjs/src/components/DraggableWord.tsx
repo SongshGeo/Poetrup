@@ -1,147 +1,147 @@
-import { useRef } from "react";
-import { useDrag, useDrop } from "react-dnd";
-import { Check } from "lucide-react";
-
-interface Word {
-  id: string;
-  text: string;
-  categories: string[];
-  color: string;
-  rotation: number;
-  folder?: string;
-  createdAt: number;
-}
+import React, { useMemo } from 'react';
+import { useDrag } from 'react-dnd';
+import { PoemWord, PoemStyleConfig } from '@/components/types';
+import { cn } from '@/components/ui/utils';
 
 interface DraggableWordProps {
-  word: Word;
-  index: number;
-  selectedWord: Word | undefined;
-  setSelectedWord: (word: Word) => void;
-  selectedWords: string[];
-  handleWordClick: (word: Word, e: React.MouseEvent) => void;
-  moveWord: (dragIndex: number, hoverIndex: number) => void;
+  word: PoemWord;
+  styleConfig?: PoemStyleConfig;
 }
 
-const ITEM_TYPE = 'WORD';
+// Helper to generate stable random numbers from a string ID
+const seededRandom = (seed: string) => {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+        const char = seed.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    const x = Math.sin(hash) * 10000;
+    return x - Math.floor(x);
+};
 
-export function DraggableWord({ 
-  word, 
-  index, 
-  selectedWord,
-  setSelectedWord: _setSelectedWord, // eslint-disable-line @typescript-eslint/no-unused-vars
-  selectedWords,
-  handleWordClick,
-  moveWord 
-}: DraggableWordProps) {
-  const ref = useRef<HTMLButtonElement>(null);
-  
-  const isSelected = selectedWord?.id === word.id;
-  const isMultiSelected = selectedWords.includes(word.id);
+export const DraggableWord = ({ word, styleConfig }: DraggableWordProps) => {
+  // Default config if none provided
+  const config = styleConfig || {
+      baseSize: 1,
+      sizeVariance: 0.5,
+      colorVariance: 0.8,
+      fontVariance: 0.5,
+      roughness: 0.5
+  };
 
-  const [{ isDragging }, drag] = useDrag({
-    type: ITEM_TYPE,
-    item: () => {
-      // 如果当前词语在多选列表中，拖拽所有多选的词语
-      if (selectedWords.includes(word.id) && selectedWords.length > 0) {
-        return { 
-          index, 
-          wordId: word.id, 
-          wordIds: selectedWords 
-        };
-      }
-      // 否则只拖拽当前词语
-      return { 
-        index, 
-        wordId: word.id, 
-        wordIds: [word.id] 
-      };
-    },
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: 'poem-word',
+    item: { id: word.id, type: 'poem-word', x: word.x, y: word.y },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  });
+  }), [word.id, word.x, word.y]);
 
-  const [, drop] = useDrop({
-    accept: ITEM_TYPE,
-    hover: (item: { index: number }) => {
-      if (!ref.current) {
-        return;
+  // Generate stable visual properties based on word ID + Config
+  const visualStyle = useMemo(() => {
+      const r1 = seededRandom(word.id);
+      const r2 = seededRandom(word.id + 'bg');
+      const r3 = seededRandom(word.id + 'font');
+      const r4 = seededRandom(word.id + 'rot');
+      const r5 = seededRandom(word.id + 'shadow');
+
+      // 1. Background Color (Paper textures/colors)
+      // If colorVariance is low, we stick to white/off-white
+      const bgColors = [
+          '#ffffff', // White
+          '#fdfbf7', // Off-white (Cream)
+          '#f2f0eb', // Newsprint
+          '#e8e4dc', // Old paper
+          '#fafafa', // Bright white
+          '#1a1a1a', // Black paper (inverted)
+          '#2c3e50', // Navy paper
+          '#8b4513', // Kraft paper (rare)
+      ];
+      
+      let bgIndex = 0;
+      let isDarkBg = false;
+
+      // Apply variance threshold
+      if (r2 < config.colorVariance) {
+           // Skew distribution towards light colors
+          bgIndex = r2 > 0.9 ? Math.floor(r2 * bgColors.length) : Math.floor(r2 * 5); 
+          const bgColor = bgColors[bgIndex];
+          isDarkBg = ['#1a1a1a', '#2c3e50', '#8b4513'].includes(bgColor);
       }
-      const dragIndex = item.index;
-      const hoverIndex = index;
 
-      if (dragIndex === hoverIndex) {
-        return;
-      }
+      const bgColor = bgColors[bgIndex];
 
-      moveWord(dragIndex, hoverIndex);
-      item.index = hoverIndex;
-    },
-  });
+      // 2. Font Family
+      const fonts = [
+          'font-serif',
+          'font-sans',
+          'font-mono',
+      ];
+      // If fontVariance is low, use serif
+      const font = r3 < config.fontVariance ? fonts[Math.floor(r3 * fonts.length)] : 'font-serif';
 
-  drag(drop(ref));
+      // 3. Rotation
+      // Roughness controls rotation range
+      const rotationRange = config.roughness * 10; // 0 to 10 degrees
+      const rotation = (r4 * rotationRange) - (rotationRange / 2);
+
+      // 4. Font Size
+      // Base size * (1 +/- variance)
+      // variance factor determines spread
+      const sizeFactor = 0.8 + (r1 * 0.4 * config.sizeVariance); // Random spread based on variance
+      const scale = config.baseSize * sizeFactor;
+
+      // 5. Shadow
+      const shadowClass = r5 > 0.5 && config.roughness > 0.3 ? "shadow-md" : "shadow-sm";
+      
+      // 6. Border Radius
+      const borderRadius = config.roughness > 0.5 ? '2px' : '4px';
+
+      return {
+          bgColor,
+          color: isDarkBg ? '#ffffff' : '#1a2e29',
+          font,
+          rotation,
+          scale,
+          shadowClass,
+          isDarkBg,
+          borderRadius
+      };
+  }, [word.id, config]);
 
   return (
-    <button
-      ref={ref}
-      onClick={(e) => handleWordClick(word, e)}
-      data-word-id={word.id}
-      className="torn-card px-3 py-2 rounded-lg text-left stagger-item group inline-block relative"
-      style={{
-        borderColor: isSelected ? word.color : 'var(--paper-border)',
-        borderWidth: isSelected ? '2px' : '1px',
-        transform: `rotate(${word.rotation}deg)`,
-        animationDelay: `${index * 0.05}s`,
-        width: 'fit-content',
-        opacity: isDragging ? 0.5 : 1,
-        cursor: 'grab',
-        backgroundColor: isMultiSelected ? `${word.color}10` : 'transparent',
+    <div 
+      ref={drag as (node: HTMLDivElement | null) => void}
+      style={{ 
+          left: word.x, 
+          top: word.y,
+          position: 'absolute',
+          opacity: isDragging ? 0.5 : 1,
+          cursor: 'move',
+          transform: `rotate(${visualStyle.rotation}deg) scale(${visualStyle.scale})`,
+          backgroundColor: visualStyle.bgColor,
+          color: visualStyle.color,
+          zIndex: isDragging ? 100 : 1,
+          borderRadius: visualStyle.borderRadius
       }}
-    >
-      {isMultiSelected && (
-        <div 
-          className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center"
-          style={{ 
-            backgroundColor: word.color,
-            border: '2px solid white',
-            zIndex: 10
-          }}
-        >
-          <Check className="w-3 h-3" style={{ color: 'white' }} />
-        </div>
+      className={cn(
+          "px-3 py-1.5 transition-all select-none border border-black/5",
+          visualStyle.shadowClass,
+          "hover:shadow-xl hover:scale-105 hover:z-50", 
+          visualStyle.font
       )}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <div 
-            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-            style={{ backgroundColor: word.color }}
+    >
+      {/* Texture Overlay for "Paper" feel */}
+      {!visualStyle.isDarkBg && (
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-black" 
+               style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 3h1v1H1V3zm2-2h1v1H3V1z' fill='%23000000' fill-opacity='1' fill-rule='evenodd'/%3E%3C/svg%3E")` }} 
           />
-          <div className="font-serif transition-colors duration-300" style={{ 
-            color: 'var(--paper-text)',
-            fontWeight: '500',
-            fontSize: '15px'
-          }}>
-            {word.text}
-          </div>
-        </div>
-        {word.categories.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {word.categories.map(category => (
-              <span 
-                key={category}
-                className="text-xs px-1.5 py-0.5 rounded"
-                style={{
-                  backgroundColor: `${word.color}15`,
-                  color: word.color,
-                  fontSize: '11px'
-                }}
-              >
-                {category}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </button>
+      )}
+      
+      <span className="relative tracking-wide leading-tight font-medium whitespace-nowrap">
+          {word.text}
+      </span>
+    </div>
   );
-}
+};
