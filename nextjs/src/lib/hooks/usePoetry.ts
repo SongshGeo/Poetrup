@@ -34,7 +34,20 @@ export function usePoetry() {
       setLoading(true);
       setError(null);
       const supabase = createSPAClient();
-      const result = await getPoetryByCreator(supabase as unknown as SupabaseClient<Database>, user.id, { pageSize: 1000 });
+      
+      // Get profile ID
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('auth_uid', user.id)
+        .single();
+      
+      if (profileError || !profile) {
+        throw new Error('无法加载用户档案');
+      }
+      
+      const profileId = (profile as { id: string }).id;
+      const result = await getPoetryByCreator(supabase as unknown as SupabaseClient<Database>, profileId, { pageSize: 1000 });
       setPoetry(result.poetry.map(adaptPoetryFromAPI));
     } catch (err) {
       const message = err instanceof Error ? err.message : '加载作品失败';
@@ -49,7 +62,20 @@ export function usePoetry() {
     if (!user) return;
     try {
       const supabase = createSPAClient();
-      const poetryData = adaptPoetryToAPI(poem as Poem, user.id);
+      
+      // Get profile ID
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('auth_uid', user.id)
+        .single();
+      
+      if (profileError || !profile) {
+        throw new Error('无法加载用户档案');
+      }
+      
+      const profileId = (profile as { id: string }).id;
+      const poetryData = adaptPoetryToAPI(poem as Poem, profileId);
       await createPoetry(supabase as unknown as SupabaseClient<Database>, poetryData);
       await loadPoetry();
       toast.success('作品创建成功');

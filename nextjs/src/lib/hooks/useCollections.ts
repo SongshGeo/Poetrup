@@ -33,7 +33,20 @@ export function useCollections() {
       setLoading(true);
       setError(null);
       const supabase = createSPAClient();
-      const result = await getCollections(supabase, { ownerId: user.id, pageSize: 1000 });
+      
+      // Get profile ID
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('auth_uid', user.id)
+        .single();
+      
+      if (profileError || !profile) {
+        throw new Error('无法加载用户档案');
+      }
+      
+      const profileId = (profile as { id: string }).id;
+      const result = await getCollections(supabase, { ownerId: profileId, pageSize: 1000 });
 
       // Load word IDs for each collection
       const collectionsWithWords = await Promise.all(
@@ -60,7 +73,20 @@ export function useCollections() {
     if (!user) return;
     try {
       const supabase = createSPAClient();
-      const collectionData = adaptCollectionToAPI(collection, user.id);
+      
+      // Get profile ID
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('auth_uid', user.id)
+        .single();
+      
+      if (profileError || !profile) {
+        throw new Error('无法加载用户档案');
+      }
+      
+      const profileId = (profile as { id: string }).id;
+      const collectionData = adaptCollectionToAPI(collection, profileId);
       await createCollection(supabase, collectionData);
       await loadCollections();
       toast.success('收藏册创建成功');

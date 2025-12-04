@@ -15,6 +15,18 @@ export const RightPanel = ({ viewMode, words, poems, currentPoemId, deletePoem }
   
   const currentPoem = poems.find(p => p.id === currentPoemId);
   
+  // Calculate category statistics from actual words
+  const categoryStats = React.useMemo(() => {
+    const stats = new Map<string, number>();
+    words.forEach(word => {
+      const count = stats.get(word.category) || 0;
+      stats.set(word.category, count + 1);
+    });
+    return Array.from(stats.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [words]);
+  
   if (viewMode === 'works' && currentPoem) {
      return (
         <div className="w-[300px] h-full bg-[#f5faf8] border-l border-[#c5dfd6]/30 flex flex-col p-6 overflow-y-auto font-serif">
@@ -83,7 +95,7 @@ export const RightPanel = ({ viewMode, words, poems, currentPoemId, deletePoem }
             <div className="w-28 h-28 rounded-full bg-[#6b9e8d]/10 mb-6 flex items-center justify-center text-[#6b9e8d]">
                  <Grid className="h-12 w-12 opacity-80" />
             </div>
-            <h1 className="text-3xl text-[#1a2e29] mb-2 tracking-wide">心情</h1>
+            <h1 className="text-3xl text-[#1a2e29] mb-2 tracking-wide">所有内容</h1>
             <div className="px-3 py-1 rounded-full bg-[#6b9e8d]/10 text-[#6b9e8d] text-xs tracking-wide">
                 标签
             </div>
@@ -104,7 +116,11 @@ export const RightPanel = ({ viewMode, words, poems, currentPoemId, deletePoem }
                  <Calendar className="h-4 w-4 text-[#4a6961]" />
                  <div className="flex-1 flex justify-between items-center">
                      <span className="text-xs text-[#4a6961] uppercase tracking-widest">创建时间</span>
-                     <span className="text-sm text-[#1a2e29] font-sans">2024年1月1日</span>
+                     <span className="text-sm text-[#1a2e29] font-sans">
+                         {words.length > 0 
+                           ? new Date(Math.min(...words.map(w => w.addedAt))).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+                           : '暂无数据'}
+                     </span>
                  </div>
              </div>
 
@@ -112,7 +128,11 @@ export const RightPanel = ({ viewMode, words, poems, currentPoemId, deletePoem }
                  <Clock className="h-4 w-4 text-[#4a6961]" />
                  <div className="flex-1 flex justify-between items-center">
                      <span className="text-xs text-[#4a6961] uppercase tracking-widest">最后修改</span>
-                     <span className="text-sm text-[#1a2e29] font-sans">今天</span>
+                     <span className="text-sm text-[#1a2e29] font-sans">
+                         {words.length > 0
+                           ? new Date(Math.max(...words.map(w => w.addedAt))).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+                           : '暂无数据'}
+                     </span>
                  </div>
              </div>
         </div>
@@ -125,10 +145,13 @@ export const RightPanel = ({ viewMode, words, poems, currentPoemId, deletePoem }
                  <span className="text-base text-[#1a2e29] tracking-wide">词语分类统计</span>
              </div>
              <div className="space-y-3">
-                 <StatItem label="心情" count={17} />
-                 <StatItem label="自然" count={7} />
-                 <StatItem label="电影" count={4} />
-                 <StatItem label="生活" count={2} />
+                 {categoryStats.length > 0 ? (
+                   categoryStats.map(({ label, count }) => (
+                     <StatItem key={label} label={label} count={count} />
+                   ))
+                 ) : (
+                   <div className="text-sm text-[#4a6961]/60 text-center py-4">暂无分类数据</div>
+                 )}
              </div>
         </div>
     </div>

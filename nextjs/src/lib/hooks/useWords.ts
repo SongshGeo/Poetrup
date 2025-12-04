@@ -25,8 +25,42 @@ export function useWords() {
       setLoading(true);
       setError(null);
       const supabase = createSPAClient();
-      const result = await getWords(supabase as unknown as SupabaseClient<Database>, { creatorId: user.id, pageSize: 1000 });
-      setWords(result.words.map(adaptWordFromAPI));
+      
+      // First, get the profile ID from auth_uid
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('auth_uid', user.id)
+        .single();
+      
+      if (profileError || !profile) {
+        throw new Error('无法加载用户档案');
+      }
+      
+      const profileId = (profile as { id: string }).id;
+      
+      // Use profile.id (not user.id) to query words
+      const result = await getWords(supabase as unknown as SupabaseClient<Database>, { creatorId: profileId, pageSize: 1000 });
+      
+      // Get collection IDs for each word
+      const wordIds = result.words.map(w => w.id);
+      const { data: collectionWords } = await supabase
+        .from('collection_words')
+        .select('word_id, collection_id')
+        .in('word_id', wordIds);
+      
+      // Build a map of word_id -> collection_ids[]
+      const wordCollectionMap = new Map<string, string[]>();
+      if (collectionWords) {
+        for (const cw of collectionWords as Array<{ word_id: string; collection_id: string }>) {
+          const existing = wordCollectionMap.get(cw.word_id) || [];
+          existing.push(cw.collection_id);
+          wordCollectionMap.set(cw.word_id, existing);
+        }
+      }
+      
+      // Adapt words with their collection IDs
+      setWords(result.words.map(word => adaptWordFromAPI(word, wordCollectionMap.get(word.id) || [])));
     } catch (err) {
       const message = err instanceof Error ? err.message : '加载词语失败';
       setError(message);
@@ -36,11 +70,24 @@ export function useWords() {
     }
   }, [user]);
 
-  const addWord = useCallback(async (word: Omit<Word, 'id' | 'addedAt'>) => {
+  const addWord = useCallback(async (word: Omit<Word, 'id' | 'addedAt' | 'collectionIds'>) => {
     if (!user) return;
     try {
       const supabase = createSPAClient();
-      const wordData = adaptWordToAPI(word as Word, user.id);
+      
+      // Get profile ID
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('auth_uid', user.id)
+        .single();
+      
+      if (profileError || !profile) {
+        throw new Error('无法加载用户档案');
+      }
+      
+      const profileId = (profile as { id: string }).id;
+      const wordData = adaptWordToAPI(word, profileId);
       await createWord(supabase as unknown as SupabaseClient<Database>, wordData);
       await loadWords();
       toast.success('词语添加成功');

@@ -85,7 +85,6 @@ export const Layout = () => {
               category: 'life', // Default
               partOfSpeech: 'n', // Default
               tags: [],
-              collectionIds: [],
           });
           
           // Note: Collection update logic would need to be handled separately
