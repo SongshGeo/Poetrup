@@ -15,24 +15,31 @@ NC='\033[0m' # No Color
 
 # 项目根目录
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FRONTEND_REPO="$PROJECT_ROOT/tmp/poetrupfrontend"
 NEXTJS_DIR="$PROJECT_ROOT/nextjs"
 TRANSFORMER_DIR="$PROJECT_ROOT/scripts/code-transformer"
 TRANSFORMER_SCRIPT="$TRANSFORMER_DIR/transformer.ts"
+
+# 前端仓库配置（可以通过环境变量覆盖）
+FRONTEND_REPO_URL="${FRONTEND_REPO_URL:-https://github.com/SongshGeo/Wordfallgemini.git}"
+FRONTEND_REPO_BRANCH="${FRONTEND_REPO_BRANCH:-main}"
+FRONTEND_REPO_DIR="$PROJECT_ROOT/tmp/wordfallgemini"
 
 # 创建临时目录
 mkdir -p "$PROJECT_ROOT/tmp"
 
 # 1. 拉取前端仓库最新代码
 echo -e "${YELLOW}📥 拉取前端仓库最新代码...${NC}"
-if [ -d "$FRONTEND_REPO" ]; then
-    cd "$FRONTEND_REPO"
+echo -e "   仓库: $FRONTEND_REPO_URL"
+echo -e "   分支: $FRONTEND_REPO_BRANCH"
+if [ -d "$FRONTEND_REPO_DIR" ]; then
+    cd "$FRONTEND_REPO_DIR"
     git fetch origin
-    git checkout main
-    git pull origin main
+    git checkout "$FRONTEND_REPO_BRANCH"
+    git pull origin "$FRONTEND_REPO_BRANCH"
 else
-    git clone https://github.com/SongshGeo/Poetrupfrontend.git "$FRONTEND_REPO"
-    cd "$FRONTEND_REPO"
+    git clone "$FRONTEND_REPO_URL" "$FRONTEND_REPO_DIR"
+    cd "$FRONTEND_REPO_DIR"
+    git checkout "$FRONTEND_REPO_BRANCH"
 fi
 
 echo -e "${GREEN}✓ 前端代码已更新到最新版本${NC}"
@@ -47,12 +54,26 @@ echo -e "${GREEN}✓ 备份已创建: $BACKUP_DIR${NC}"
 
 # 3. 复制 UI 组件
 echo -e "${YELLOW}📦 更新 UI 组件...${NC}"
-if [ -d "$FRONTEND_REPO/src/components/ui" ]; then
-    rm -rf "$NEXTJS_DIR/src/components/ui"
-    cp -r "$FRONTEND_REPO/src/components/ui" "$NEXTJS_DIR/src/components/"
-    echo -e "${GREEN}✓ UI 组件已更新${NC}"
-else
-    echo -e "${RED}✗ 未找到 UI 组件目录${NC}"
+# 尝试多个可能的路径
+UI_PATHS=(
+    "$FRONTEND_REPO_DIR/src/components/ui"
+    "$FRONTEND_REPO_DIR/src/src/components/ui"
+    "$FRONTEND_REPO_DIR/components/ui"
+)
+
+UI_FOUND=false
+for UI_PATH in "${UI_PATHS[@]}"; do
+    if [ -d "$UI_PATH" ]; then
+        rm -rf "$NEXTJS_DIR/src/components/ui"
+        cp -r "$UI_PATH" "$NEXTJS_DIR/src/components/"
+        echo -e "${GREEN}✓ UI 组件已更新（来源: $UI_PATH）${NC}"
+        UI_FOUND=true
+        break
+    fi
+done
+
+if [ "$UI_FOUND" = false ]; then
+    echo -e "${YELLOW}⚠  未找到 UI 组件目录，跳过${NC}"
 fi
 
 # 4. 检测文件是否需要转换
@@ -92,27 +113,38 @@ transform_component() {
 
 # 4. 复制业务组件
 echo -e "${YELLOW}📦 更新业务组件...${NC}"
-COMPONENTS_TO_COPY=(
-    "DraggableWord.tsx"
-    "DroppableFolder.tsx"
-    "DroppableTag.tsx"
-    "PoemCollectionView.tsx"
-    "PoemEditView.tsx"
-    "PropertiesPanel.tsx"
-    "SelectionBox.tsx"
-    "Sidebar.tsx"
-    "TornWordCard.tsx"
-    "WordCard.tsx"
-    "WordListItem.tsx"
-    "WorkPanel.tsx"
+
+# 尝试多个可能的组件目录路径
+COMPONENT_DIRS=(
+    "$FRONTEND_REPO_DIR/src/components"
+    "$FRONTEND_REPO_DIR/src/src/components/interactive"
+    "$FRONTEND_REPO_DIR/src/src/components"
+    "$FRONTEND_REPO_DIR/components"
 )
 
-TRANSFORMED_FILES=()
-COPIED_FILES=()
+COMPONENT_DIR=""
+for DIR in "${COMPONENT_DIRS[@]}"; do
+    if [ -d "$DIR" ] && [ "$(find "$DIR" -maxdepth 1 -name "*.tsx" -o -name "*.tsx" | wc -l)" -gt 0 ]; then
+        COMPONENT_DIR="$DIR"
+        echo -e "  找到组件目录: $DIR"
+        break
+    fi
+done
 
-for component in "${COMPONENTS_TO_COPY[@]}"; do
-    if [ -f "$FRONTEND_REPO/src/components/$component" ]; then
-        src_file="$FRONTEND_REPO/src/components/$component"
+if [ -z "$COMPONENT_DIR" ]; then
+    echo -e "${RED}✗ 未找到组件目录${NC}"
+else
+    TRANSFORMED_FILES=()
+    COPIED_FILES=()
+    
+    # 复制所有 .tsx 文件（排除 ui 目录和特殊文件）
+    find "$COMPONENT_DIR" -maxdepth 1 -name "*.tsx" -o -name "*.ts" | while read -r src_file; do
+        component=$(basename "$src_file")
+        # 跳过 UI 组件和特殊文件
+        if [[ "$component" == *"ui"* ]] || [[ "$component" == "App.tsx" ]] || [[ "$component" == "main.tsx" ]]; then
+            continue
+        fi
+        
         dest_file="$NEXTJS_DIR/src/components/$component"
         
         if transform_component "$src_file" "$dest_file"; then
@@ -122,15 +154,29 @@ for component in "${COMPONENTS_TO_COPY[@]}"; do
             COPIED_FILES+=("$component")
             echo -e "  ${GREEN}✓ $component${NC}"
         fi
-    fi
-done
+    done
+fi
 
 # 5. 更新样式文件（合并 globals.css）
 echo -e "${YELLOW}🎨 更新样式文件...${NC}"
-if [ -f "$FRONTEND_REPO/src/index.css" ]; then
-    # 提取纸张纹理相关的样式（这部分需要手动合并）
-    echo -e "${YELLOW}⚠  globals.css 需要手动合并纸张纹理样式${NC}"
-    echo -e "   请检查: $FRONTEND_REPO/src/index.css"
+STYLE_FILES=(
+    "$FRONTEND_REPO_DIR/src/index.css"
+    "$FRONTEND_REPO_DIR/src/styles/globals.css"
+    "$FRONTEND_REPO_DIR/index.css"
+)
+
+STYLE_FOUND=false
+for STYLE_FILE in "${STYLE_FILES[@]}"; do
+    if [ -f "$STYLE_FILE" ]; then
+        echo -e "${YELLOW}⚠  发现样式文件: $STYLE_FILE${NC}"
+        echo -e "   请手动检查是否需要合并到 nextjs/src/app/globals.css"
+        STYLE_FOUND=true
+        break
+    fi
+done
+
+if [ "$STYLE_FOUND" = false ]; then
+    echo -e "${GREEN}✓ 未发现新的样式文件${NC}"
 fi
 
 # 6. 应用必要的转换
@@ -153,17 +199,26 @@ find "$NEXTJS_DIR/src/components" -name "*.tsx" -o -name "*.ts" | while read fil
 done
 
 # 6.2 如果更新了 App.tsx，需要手动转换为页面
-if [ -f "$FRONTEND_REPO/src/App.tsx" ]; then
-    echo -e "${YELLOW}⚠  App.tsx 已更新，需要手动转换为 Next.js 页面${NC}"
-    echo -e "   源文件: $FRONTEND_REPO/src/App.tsx"
-    echo -e "   目标: $NEXTJS_DIR/src/app/app/page.tsx"
-fi
+APP_FILES=(
+    "$FRONTEND_REPO_DIR/src/App.tsx"
+    "$FRONTEND_REPO_DIR/src/src/App.tsx"
+)
+
+for APP_FILE in "${APP_FILES[@]}"; do
+    if [ -f "$APP_FILE" ]; then
+        echo -e "${YELLOW}⚠  App.tsx 已更新，需要手动转换为 Next.js 页面${NC}"
+        echo -e "   源文件: $APP_FILE"
+        echo -e "   目标: $NEXTJS_DIR/src/app/app/page.tsx"
+        break
+    fi
+done
 
 # 7. 更新 package.json 依赖（如果需要）
 echo -e "${YELLOW}📋 检查依赖更新...${NC}"
-if [ -f "$FRONTEND_REPO/package.json" ]; then
+if [ -f "$FRONTEND_REPO_DIR/package.json" ]; then
     echo -e "${YELLOW}⚠  请检查前端 package.json 是否有新的依赖需要添加${NC}"
-    echo -e "   源文件: $FRONTEND_REPO/package.json"
+    echo -e "   源文件: $FRONTEND_REPO_DIR/package.json"
+    echo -e "   运行: cd nextjs && yarn install"
 fi
 
 echo -e "\n${GREEN}✅ 更新完成！${NC}"
